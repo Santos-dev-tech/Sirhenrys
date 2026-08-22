@@ -512,6 +512,85 @@ window.Motion = (() => {
     if (anatRaf) { cancelAnimationFrame(anatRaf); anatRaf = null; }
   }
 
+  /* ---------------------------------------------------------- 360 spinner
+     Drag (or arrow-key) to rotate a garment through its eight photographed angles.
+     Same frame-swap engine as the dressing sequence, which is already proven to run
+     forward and reverse, so nothing here depends on video seeking. */
+  let spinners = [];
+  function mountSpinners(root = document) {
+    unmountSpinners();
+    root.querySelectorAll('[data-spin]').forEach(box => {
+      const frames = [...box.querySelectorAll('.spin-f')];
+      if (frames.length < 2) return;
+      const N = frames.length;
+      const label = box.querySelector('[data-spin-deg]');
+      let idx = 0, target = 0, raf = null, dragging = false, startX = 0, startT = 0, moved = 0;
+
+      frames.forEach(f => { if (f.decode) f.decode().catch(() => {}); });
+
+      const show = (i) => {
+        i = ((i % N) + N) % N;
+        if (i === idx) return;
+        frames[idx].classList.remove('on');
+        frames[i].classList.add('on');
+        idx = i;
+        if (label) label.textContent = Math.round(i * (360 / N)) + '\u00B0';
+      };
+
+      const loop = () => {
+        // ease toward the dragged position so a flick glides instead of snapping
+        const d = target - idx;
+        if (Math.abs(d) > 0.01) {
+          show(Math.round(idx + d * 0.25));
+          raf = requestAnimationFrame(loop);
+        } else { raf = null; }
+      };
+      const settle = () => { if (!raf) raf = requestAnimationFrame(loop); };
+
+      const down = e => {
+        dragging = true; moved = 0;
+        startX = (e.touches ? e.touches[0].clientX : e.clientX);
+        startT = target;
+        box.classList.add('grabbing');
+        if (e.pointerId != null && box.setPointerCapture) box.setPointerCapture(e.pointerId);
+      };
+      const move = e => {
+        if (!dragging) return;
+        const x = (e.touches ? e.touches[0].clientX : e.clientX);
+        const dx = x - startX;
+        moved = Math.max(moved, Math.abs(dx));
+        // a full drag across the box turns the garment right round
+        target = startT + (dx / box.clientWidth) * N * 1.35;
+        settle();
+        if (e.cancelable) e.preventDefault();
+      };
+      const up = () => { dragging = false; box.classList.remove('grabbing'); box.classList.add('spun'); };
+
+      box.addEventListener('pointerdown', down);
+      box.addEventListener('pointermove', move);
+      box.addEventListener('pointerup', up);
+      box.addEventListener('pointerleave', up);
+      box.addEventListener('touchstart', down, { passive: true });
+      box.addEventListener('touchmove', move, { passive: false });
+      box.addEventListener('touchend', up);
+
+      // keyboard, so it is not mouse-only
+      box.tabIndex = 0;
+      box.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight') { target += 1; settle(); box.classList.add('spun'); e.preventDefault(); }
+        if (e.key === 'ArrowLeft')  { target -= 1; settle(); box.classList.add('spun'); e.preventDefault(); }
+      });
+
+      spinners.push({ box, destroy() {
+        if (raf) cancelAnimationFrame(raf);
+        box.removeEventListener('pointerdown', down);
+        box.removeEventListener('pointermove', move);
+        box.removeEventListener('pointerup', up);
+      } });
+    });
+  }
+  function unmountSpinners() { spinners.forEach(s => s.destroy()); spinners = []; }
+
   /* ------------------------------------------------------- route transitions */
   function transition(run) {
     const veil = document.getElementById('veil');
@@ -545,5 +624,6 @@ window.Motion = (() => {
   }
 
   return { boot, refresh, mountRail, unmountRail, mountAnatomy, unmountAnatomy,
+           mountSpinners, unmountSpinners,
            transition, scrollTo, stopScroll, startScroll, reduced };
 })();

@@ -82,3 +82,36 @@ The float button is a placeholder; WhatsApp is Kenya's default channel.
 - No server: state is in `localStorage` and does not sync across devices.
 - M-Pesa is simulated until Safaricom credentials exist.
 - Passwords are demo-only and not securely hashed — real deployment needs a backend.
+
+
+---
+
+## 8. 360 turnaround  `[x]`
+Drag a garment to see it from every side. Asked for repeatedly; finally reachable.
+
+- [x] Four photographed positions: front, left profile, back, right profile
+- [x] Drag or arrow-keys, eased so a flick glides rather than snaps
+- [x] Degree readout, and a hint that stops animating once you have used it
+- [x] Products without a turnaround fall back to the flat image
+
+**Verified** by `tools/spintest.js`: 4/4 frames load, rotates right (0→3) and left (3→1).
+
+### What it cost to learn
+Three models were tried before one could actually reorient a subject:
+
+| Model | Result |
+|---|---|
+| Soul 2.0, plain prompt | rendered a literal wheeled turntable, and multi-panel contact sheets |
+| Soul 2.0, image reference + fixed seed | garment and studio held perfectly, but the body never turned |
+| Kling O1 | blocked, needs a paid plan |
+| **Nano Banana Pro** | **true rotation, subject and studio preserved** |
+
+Soul is text-to-image and its training is overwhelmingly front-facing fashion; an image
+reference pulls it further toward copying the reference pose, not away from it. Nano Banana
+Pro is an image-editing model, which is the right shape for "same subject, new angle".
+
+Two lessons worth keeping:
+- Naming apparatus in a prompt renders the apparatus. "Turntable" drew a turntable, exactly
+  as "no magazine" once drew magazines.
+- Measure the claim, do not eyeball it. Shoulder width as a fraction of frame width
+  distinguishes a real profile (0.62) from a front view dressed up as one (1.07).

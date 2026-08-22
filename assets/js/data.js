@@ -150,6 +150,16 @@ const SH = (() => {
     };
   });
 
+  /* Garments photographed all the way round. Only these get the 360 viewer; everything
+     else falls back to the flat gallery, so the page never shows an empty spinner. */
+  // Four photographed positions. Eight would be smoother but each angle is a paid
+  // generation; the viewer interpolates nothing, so every frame here is real.
+  const SPIN_ANGLES = [0, 90, 180, 270];
+  const SPINNABLE = ['carlo-navy'];
+  const hasSpin = slug => SPINNABLE.includes(slug);
+  const spinFrames = slug => SPIN_ANGLES.map(a =>
+    'assets/img/spin-' + slug + '-' + String(a).padStart(3, '0') + '.jpg');
+
   const byId = s => PRODUCTS.find(p => p.slug === s);
   const fmt = n => 'KSh ' + Number(n).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -433,6 +443,7 @@ const SH = (() => {
            cart, wishlist, placeOrder, bookAppointment, addCommission, markRecent,
            addGroup, groupDiscount, search,
            skuFor, barcodeFor, checkEan13, lookupCode,
+           SPIN_ANGLES, hasSpin, spinFrames,
            stockAt, adjustStock, branchTotal, allStock,
            mpesaStkPush, mpesaResolve, recordSale,
            addAlteration, advanceAlteration, addCorporate, corporateTier,

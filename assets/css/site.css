@@ -609,3 +609,25 @@ html:not(.js) [data-reveal]{opacity:1 !important;transform:none !important;clip-
 .corp-quote{margin-top:26px;border:1px solid var(--line);padding:20px;background:var(--bone)}
 .corp-line{display:flex;justify-content:space-between;gap:16px;font-size:13.5px;padding:5px 0}
 .corp-line b{color:var(--bronze)}
+
+/* ---------- 360 turnaround ---------- */
+.spin{position:relative;aspect-ratio:3/4;background:var(--bone-2);overflow:hidden;
+  cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.spin.grabbing{cursor:grabbing}
+.spin-f{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;
+  pointer-events:none}
+.spin-f.on{opacity:1}
+.spin-ui{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;
+  align-items:center;padding:14px 16px;pointer-events:none;
+  background:linear-gradient(transparent,rgba(247,245,242,.9))}
+.spin-hint{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;font-weight:600;
+  color:var(--ink-3);display:flex;align-items:center;gap:8px}
+.spin-hint::before{content:'';width:26px;height:1px;background:var(--bronze);
+  animation:spinhint 2.2s ease-in-out infinite}
+@keyframes spinhint{0%,100%{transform:translateX(-4px);opacity:.4}50%{transform:translateX(4px);opacity:1}}
+.spin.spun .spin-hint::before{animation:none}
+.spin.spun .spin-hint{opacity:.45}
+.spin-deg{font-size:10px;letter-spacing:.16em;font-weight:700;color:var(--bronze);
+  font-variant-numeric:tabular-nums}
+.spin:focus-visible{outline:2px solid var(--bronze);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.spin-hint::before{animation:none}}

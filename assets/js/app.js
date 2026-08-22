@@ -277,7 +277,17 @@
       <div class="crumbs"><a href="#/">Home</a> / <a href="#/shop?cat=${p.category}">${esc(CATEGORIES.find(c => c.id === p.category).name)}</a> / ${esc(p.title)}</div>
       <div class="pdp">
         <div class="pdp-gal">
-          <img src="${p.images[0]}" alt="${esc(p.title)}">
+          ${SH.hasSpin(p.slug) ? `
+            <div class="spin" data-spin tabindex="0" role="img"
+                 aria-label="${esc(p.title)}, rotatable through eight angles">
+              ${SH.spinFrames(p.slug).map((src, i) => `<img class="spin-f${i === 0 ? ' on' : ''}"
+                src="${src}" alt="" decoding="async"
+                fetchpriority="${i === 0 ? 'high' : 'low'}">`).join('')}
+              <div class="spin-ui">
+                <span class="spin-hint">Drag to turn</span>
+                <span class="spin-deg" data-spin-deg>0&deg;</span>
+              </div>
+            </div>` : `<img src="${p.images[0]}" alt="${esc(p.title)}">`}
           <img src="${p.images[1]}" alt="" loading="lazy">
         </div>
         <div class="pdp-info" data-pdp="${p.slug}">
@@ -817,6 +827,7 @@
     }
 
     Motion.mountAnatomy(document.getElementById('anatomy'));
+    Motion.mountSpinners(document);
     Motion.refresh(document);
   }
 
