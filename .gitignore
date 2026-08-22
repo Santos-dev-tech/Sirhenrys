@@ -1,0 +1,20 @@
+# puppeteer-core, pulled in only for the local screenshot harness
+tools/node_modules/
+tools/package-lock.json
+tools/package.json
+
+# screenshot output from tools/shoot.js
+_shots/
+
+# scratch copies made while testing the bundler
+_b.html
+_v.html
+_t.html
+_live.html
+_delivered.html
+_standalone-test.html
+
+# OS noise
+Thumbs.db
+desktop.ini
+.DS_Store
