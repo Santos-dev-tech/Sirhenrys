@@ -32,6 +32,41 @@ const SH = (() => {
     });
     return out;
   }
+  /* ---------- SKUs and barcodes ----------
+     Their live catalogue has no barcodes at all and 67% of variants have no SKU, so
+     nothing can be scanned in a shop. These are generated deterministically, which means
+     the same variant always produces the same code and printed tags stay valid. */
+  function skuFor(slug, size) {
+    const a = slug.split('-').map(w => w.slice(0, 3).toUpperCase()).join('').slice(0, 9);
+    return 'SH-' + a + '-' + String(size).replace(/\s+/g, '').toUpperCase();
+  }
+  // EAN-13: 12 digits then a checksum. 20 = in-store range, safe for private use.
+  function barcodeFor(slug, size) {
+    let h = 0;
+    for (const c of (slug + '|' + size)) h = (h * 33 + c.charCodeAt(0)) >>> 0;
+    const body = ('20' + String(h).padStart(10, '0')).slice(0, 12);
+    let sum = 0;
+    for (let i = 0; i < 12; i++) sum += (+body[i]) * (i % 2 ? 3 : 1);
+    return body + ((10 - (sum % 10)) % 10);
+  }
+  function checkEan13(code) {
+    if (!/^\d{13}$/.test(code)) return false;
+    let sum = 0;
+    for (let i = 0; i < 12; i++) sum += (+code[i]) * (i % 2 ? 3 : 1);
+    return (10 - (sum % 10)) % 10 === +code[12];
+  }
+  // find a variant from a scanned barcode or typed SKU
+  function lookupCode(code) {
+    const q = String(code || '').trim().toUpperCase();
+    if (!q) return null;
+    for (const p of PRODUCTS) {
+      for (const size of p.sizes) {
+        if (barcodeFor(p.slug, size) === q || skuFor(p.slug, size) === q) return { product: p, size };
+      }
+    }
+    return null;
+  }
+
   const total = (stock, size) => Object.values(stock[size] || {}).reduce((a, b) => a + b, 0);
   const totalAll = (p) => Object.keys(p.stock).reduce((a, s) => a + total(p.stock, s), 0);
 
@@ -156,10 +191,46 @@ const SH = (() => {
       status:'Quoted' }
   ]);
 
+  /* Demo staff accounts. A real deployment authenticates server-side; these exist so the
+     console can be shown locked rather than open to anyone with the URL. */
+  const STAFF = [
+    { id:'ha', name:'Henry Achieng',  pin:'1967', role:'owner',   store:null,     title:'Owner' },
+    { id:'wm', name:'Wanjiru Mwangi', pin:'2468', role:'manager', store:'cbd',    title:'Store Manager, CBD' },
+    { id:'ok', name:'Otieno Kimani',  pin:'1357', role:'floor',   store:'west',   title:'Shop Floor, Westgate' }
+  ];
+  const ROLE_VIEWS = {
+    owner:   ['dashboard','analytics','pos','orders','products','inventory','customers','fittings','alterations','commissions','groups','corporate','settings'],
+    manager: ['dashboard','pos','orders','products','inventory','customers','fittings','alterations','commissions','groups','corporate'],
+    floor:   ['pos','inventory','alterations']
+  };
+
+  const seedAlterations = () => ([
+    { id:'ALT-400', date:Date.now()-86400000*2, customer:'Brian Otieno', phone:'0722 000 111',
+      order:'SH-10241', garment:'Carlo Calvino 3 Piece - Navy', branch:'cbd',
+      work:{ sleeve:'-1.5cm', waist:'', hem:'31in', taper:'yes' },
+      status:'In Workshop', promised:day(3), log:[{t:Date.now()-86400000*2, s:'Received', msg:'Garment received at Kimathi Street.'}] },
+    { id:'ALT-401', date:Date.now()-86400000*5, customer:'Samuel Kariuki', phone:'0710 555 888',
+      order:'SH-10239', garment:'Classic Black Tuxedo', branch:'cbd',
+      work:{ sleeve:'', waist:'+2cm', hem:'', taper:'no' },
+      status:'Ready', promised:day(-1), log:[
+        {t:Date.now()-86400000*5, s:'Received', msg:'Garment received at Kimathi Street.'},
+        {t:Date.now()-86400000*2, s:'In Workshop', msg:'Waist let out 2cm.'},
+        {t:Date.now()-86400000, s:'Ready', msg:'Ready for collection at Kimathi Street.'}] }
+  ]);
+
+  const seedCorporate = () => ([
+    { id:'CORP-700', date:Date.now()-86400000*3, company:'Sidian Bank', contact:'Grace Wambui',
+      email:'grace@example.co.ke', phone:'0733 121 212', headcount:120, garment:'Two-piece suit',
+      deadline:day(60), notes:'Branch staff uniform refresh, navy.', status:'New' }
+  ]);
+
   const blank = () => ({
     cart: [], wishlist: [], orders: seedOrders(), appointments: seedAppointments(), commissions: seedCommissions(),
-    groups: seedGroups(), customer: null, recent: [],
-    settings: { freeShipThreshold: 20000, currency: 'KSh', vat: 16 }
+    groups: seedGroups(), alterations: seedAlterations(), corporate: seedCorporate(),
+    sales: [], adjustments: {}, staff: null, customer: null, recent: [],
+    settings: { freeShipThreshold: 20000, currency: 'KSh', vat: 16,
+                mpesa: { shortcode: '174379', callback: 'https://api.sirhenrys.co.ke/mpesa/callback', live: false },
+                whatsapp: { cbd:'254713619786', west:'254713619787', rivers:'254713619788', msa:'254713619789' } }
   });
 
   let state;
@@ -239,15 +310,137 @@ const SH = (() => {
         .toLowerCase().includes(q));
   }
 
+  /* ---------- live stock ----------
+     Generated stock is the baseline; every sale, transfer or correction is recorded as an
+     adjustment against it. Selling IS the inventory update - nobody re-keys a number. */
+  function adjKey(slug, size, branch) { return slug + '|' + size + '|' + branch; }
+  function stockAt(slug, size, branch) {
+    const p = byId(slug);
+    if (!p) return 0;
+    const base = (p.stock[size] || {})[branch] || 0;
+    return Math.max(0, base + (state.adjustments[adjKey(slug, size, branch)] || 0));
+  }
+  function adjustStock(slug, size, branch, delta, reason) {
+    const k = adjKey(slug, size, branch);
+    state.adjustments[k] = (state.adjustments[k] || 0) + delta;
+    emit();
+    return stockAt(slug, size, branch);
+  }
+  const branchTotal = (p, size) => BRANCHES.reduce((a, b) => a + stockAt(p.slug, size, b.id), 0);
+  const allStock = (p) => p.sizes.reduce((a, s) => a + branchTotal(p, s), 0);
+
+  /* ---------- M-Pesa, shaped like Daraja ----------
+     This builds the exact request body Safaricom's STK Push endpoint expects, so going live
+     is a matter of supplying credentials and POSTing it instead of resolving locally.
+     See MPESA-GOING-LIVE.md. */
+  function mpesaStkPush({ phone, amount, reference, description }) {
+    const msisdn = String(phone || '').replace(/\D/g, '').replace(/^0/, '254').replace(/^(?!254)/, '254').slice(0, 12);
+    const ts = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+    const cfg = state.settings.mpesa;
+    const request = {
+      BusinessShortCode: cfg.shortcode,
+      Password: '<base64(shortcode + passkey + timestamp)>',
+      Timestamp: ts,
+      TransactionType: 'CustomerPayBillOnline',
+      Amount: Math.round(amount),
+      PartyA: msisdn,
+      PartyB: cfg.shortcode,
+      PhoneNumber: msisdn,
+      CallBackURL: cfg.callback,
+      AccountReference: reference,
+      TransactionDesc: description || 'Sir Henry\'s'
+    };
+    const checkoutId = 'ws_CO_' + ts + Math.floor(Math.random() * 1e6);
+    return { request, checkoutId, merchantRequestId: ts.slice(-6) + '-' + Math.floor(Math.random() * 1e7) };
+  }
+  // Resolve a push the way Daraja's callback would. Live mode posts to Safaricom instead.
+  function mpesaResolve(checkoutId, outcome) {
+    const CODES = {
+      success:     { ResultCode: 0,    ResultDesc: 'The service request is processed successfully.' },
+      cancelled:   { ResultCode: 1032, ResultDesc: 'Request cancelled by user' },
+      timeout:     { ResultCode: 1037, ResultDesc: 'DS timeout. User cannot be reached' },
+      wrongpin:    { ResultCode: 2001, ResultDesc: 'The initiator information is invalid.' },
+      insufficient:{ ResultCode: 1,    ResultDesc: 'The balance is insufficient for the transaction.' }
+    };
+    const r = CODES[outcome] || CODES.success;
+    return {
+      ...r,
+      CheckoutRequestID: checkoutId,
+      MpesaReceiptNumber: r.ResultCode === 0
+        ? 'S' + Math.random().toString(36).slice(2, 11).toUpperCase() : null
+    };
+  }
+
+  /* ---------- POS ---------- */
+  function recordSale({ lines, branch, payment, staff, mpesaReceipt, customer }) {
+    const id = 'POS-' + (5000 + state.sales.length);
+    const total = lines.reduce((a, l) => a + l.price * l.qty, 0);
+    lines.forEach(l => adjustStock(l.slug, l.size, branch, -l.qty, 'sale ' + id));
+    const sale = { id, date: Date.now(), lines, branch, payment, staff, mpesaReceipt: mpesaReceipt || null,
+                   customer: customer || null, total, channel: 'in-store' };
+    state.sales.unshift(sale);
+    // a shop sale is an order too, so one dashboard covers both channels
+    state.orders.unshift({
+      id, date: sale.date, customer: { name: customer?.name || 'Walk-in customer', email: customer?.email || '', phone: customer?.phone || '' },
+      items: lines.map(l => ({ slug: l.slug, size: l.size, qty: l.qty, price: l.price })),
+      total, payment, branch, status: 'Delivered', alterations: '', channel: 'in-store'
+    });
+    emit();
+    return sale;
+  }
+
+  /* ---------- alterations ---------- */
+  const ALT_STAGES = ['Received', 'In Workshop', 'Ready', 'Collected'];
+  function addAlteration(a) {
+    const id = 'ALT-' + (402 + state.alterations.length);
+    state.alterations.unshift({ id, date: Date.now(), status: 'Received',
+      log: [{ t: Date.now(), s: 'Received', msg: 'Garment received at ' + (BRANCHES.find(b => b.id === a.branch)?.name || 'store') + '.' }], ...a });
+    emit(); return id;
+  }
+  function advanceAlteration(id, stage, msg) {
+    const a = state.alterations.find(x => x.id === id);
+    if (!a) return;
+    a.status = stage;
+    a.log.push({ t: Date.now(), s: stage, msg: msg || defaultAltMsg(stage, a) });
+    emit();
+  }
+  function defaultAltMsg(stage, a) {
+    const store = BRANCHES.find(b => b.id === a.branch)?.name || 'store';
+    return {
+      'Received': 'Garment received at ' + store + '.',
+      'In Workshop': 'Your ' + a.garment + ' is with our tailor.',
+      'Ready': 'Ready for collection at ' + store + '. Open Mon-Sun 10am-8pm.',
+      'Collected': 'Collected. Thank you from Sir Henry\'s.'
+    }[stage] || stage;
+  }
+
+  function addCorporate(c) {
+    state.corporate.unshift({ id: 'CORP-' + (701 + state.corporate.length), date: Date.now(), status: 'New', ...c });
+    emit();
+  }
+  // volume pricing a corporate buyer would expect to see up front
+  function corporateTier(n) {
+    return n >= 200 ? 0.30 : n >= 100 ? 0.25 : n >= 50 ? 0.20 : n >= 20 ? 0.15 : n >= 10 ? 0.10 : 0;
+  }
+
   function markRecent(slug) {
     state.recent = [slug, ...state.recent.filter(s => s !== slug)].slice(0, 8);
     save();
   }
 
-  return { BRANCHES, CATEGORIES, PRODUCTS, STATUSES, byId, fmt, state, save, emit,
+  return { BRANCHES, CATEGORIES, PRODUCTS, STATUSES, STAFF, ROLE_VIEWS, ALT_STAGES,
+           byId, fmt, state, save, emit,
            cart, wishlist, placeOrder, bookAppointment, addCommission, markRecent,
            addGroup, groupDiscount, search,
-           stockTotal: total, stockAll: totalAll, reset(){ state = blank(); emit(); } };
+           skuFor, barcodeFor, checkEan13, lookupCode,
+           stockAt, adjustStock, branchTotal, allStock,
+           mpesaStkPush, mpesaResolve, recordSale,
+           addAlteration, advanceAlteration, addCorporate, corporateTier,
+           // live figures replace the static baseline everywhere
+           stockTotal: (stock, size) => { const p = PRODUCTS.find(x => x.stock === stock);
+             return p ? branchTotal(p, size) : total(stock, size); },
+           stockAll: (p) => allStock(p),
+           reset(){ state = blank(); emit(); } };
 })();
 
 window.SH = SH;

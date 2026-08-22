@@ -36,7 +36,7 @@
         <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
       </button>
       <div class="card-sizes">${p.sizes.map(s => {
-        const n = SH.stockTotal(p.stock, s);
+        const n = SH.branchTotal(p, s);
         return `<button data-quick="${p.slug}" data-size="${s}" ${n ? '' : 'disabled'}>${s}</button>`;
       }).join('')}</div>
       <a class="card-b" href="#/product/${p.slug}">
@@ -50,6 +50,25 @@
   const gridHTML = list => list.length
     ? `<div class="grid" data-stagger="0.06">${list.map(cardHTML).join('')}</div>`
     : `<div class="empty"><p>Nothing matches those filters yet.</p><a class="btn ghost" href="#/shop">View everything</a></div>`;
+
+  /* ---------- WhatsApp ----------
+     WhatsApp is the default channel in Kenya. These build wa.me links with the message
+     already written, so a customer never has to describe what they are looking at. */
+  const waNumber = (branch) => (SH.state.settings.whatsapp || {})[branch || 'cbd'] || '254713619786';
+  const waLink = (text, branch) =>
+    'https://wa.me/' + waNumber(branch) + '?text=' + encodeURIComponent(text);
+  const waProduct = (p, size) =>
+    waLink("Hello Sir Henry's, I am interested in the " + p.title +
+           (size ? ' in size ' + size : '') + ' (' + fmt(p.price) + ').' +
+           '\n\nIs it available?', null);
+  const waBasket = () => {
+    const lines = state.cart.map(l => {
+      const p = byId(l.slug);
+      return '- ' + p.title + ' - size ' + l.size + ' x' + l.qty + ' - ' + fmt(p.price * l.qty);
+    }).join('\n');
+    return waLink("Hello Sir Henry's, I would like to order:\n\n" + lines +
+                  '\n\nTotal: ' + fmt(cart.total) + '\n\nCan you confirm availability?', null);
+  };
 
   /* ---------- the anatomy sequence ----------
      Five layers laid onto one figure as you scroll. Plate scale is normalised
@@ -270,7 +289,7 @@
 
           <div class="row-lbl"><b>Size</b><a data-fit>Find my size</a></div>
           <div class="sizes">${p.sizes.map(s => {
-            const n = SH.stockTotal(p.stock, s);
+            const n = SH.branchTotal(p, s);
             return `<button data-size="${s}" ${n ? '' : 'disabled'} title="${n ? n + ' in stock' : 'Out of stock'}">${s}</button>`;
           }).join('')}</div>
           <div class="stockline" data-stock>Select a size to see availability.</div>
@@ -278,6 +297,10 @@
           <button class="btn wide" data-add>Add to bag</button>
           <button class="btn ghost wide" style="margin-top:10px" data-fav2="${p.slug}">
             ${wishlist.has(p.slug) ? 'Saved to wishlist' : 'Save for later'}</button>
+          <a class="btn wa-btn wide" style="margin-top:10px" data-wa="${p.slug}" target="_blank" rel="noopener"
+             href="${waProduct(p, '')}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 00-8.6 15L2 22l5.2-1.4A10 10 0 1012 2z"/></svg>
+            Ask about this on WhatsApp</a>
           <p class="muted" style="font-size:12px;margin-top:16px;text-align:center">
             Free delivery over KSh 20,000 &middot; <a href="#/appointments" style="color:var(--bronze);border-bottom:1px solid">Book a fitting instead</a></p>
 
@@ -475,12 +498,28 @@
         </div>`).join('')}</div>
       ${o.alterations ? `<div style="border:1px solid var(--line);padding:18px;margin-bottom:24px">
         <div class="eyebrow" style="margin-bottom:8px">Workshop notes</div>${esc(o.alterations)}</div>` : ''}
+      ${(() => {
+        const alt = state.alterations.filter(a => a.order === o.id);
+        if (!alt.length) return '';
+        return alt.map(a => `<div style="border:1px solid var(--line);padding:22px;margin-bottom:24px">
+          <div class="eyebrow" style="margin-bottom:14px">Alterations &middot; ${esc(a.id)}</div>
+          <div class="tl" style="margin:0">${SH.ALT_STAGES.map((st, i) => {
+            const at = SH.ALT_STAGES.indexOf(a.status);
+            return `<div class="tl-s ${i < at ? 'done' : ''} ${i === at ? 'now' : ''}">
+              <div class="dot">${i < at ? '&check;' : i + 1}</div>
+              <div><b>${st}</b><span>${i === at ? 'Current stage' : i < at ? 'Done' : 'Pending'}</span></div></div>`;
+          }).join('')}</div>
+          <p class="muted" style="font-size:12.5px;margin:12px 0 0">Promised ${esc(a.promised)}.</p>
+        </div>`).join('');
+      })()}
       <div style="border:1px solid var(--line);padding:24px">
         <div class="eyebrow" style="margin-bottom:14px">Items</div>
         ${o.items.map(l => { const p = byId(l.slug); return `
           <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px">
             <span>${esc(p ? p.title : l.slug)} &middot; ${l.size} &times; ${l.qty}</span><b>${fmt(l.price * l.qty)}</b></div>`; }).join('')}
         <div class="tot big"><span>Paid by ${o.payment}</span><b>${fmt(o.total)}</b></div>
+        ${o.mpesaReceipt ? `<div class="muted" style="font-size:12px;text-align:right">
+          M-Pesa receipt ${esc(o.mpesaReceipt)}</div>` : ''}
       </div>
       <div style="margin-top:26px"><a class="btn ghost" href="#/shop">Continue shopping</a>
         <a class="btn" href="#/account" style="margin-left:10px">My orders</a></div>
@@ -627,6 +666,42 @@
     </div><div style="height:80px"></div>`;
   };
 
+  V.corporate = () => `<div class="wrap" style="max-width:900px">
+    <div class="crumbs"><a href="#/">Home</a> / Corporate &amp; Bulk</div>
+    <div class="sec-hd" data-reveal><div><div class="eyebrow">Corporate Service</div>
+      <h2>Dressing your whole organisation</h2>
+      <p>Sir Henry's has outfitted banks, law firms and airlines across East Africa since 1967.
+      Tell us the headcount and the deadline, and we will come to you with cloth.</p></div></div>
+
+    <div class="tiers" data-stagger="0.06">
+      ${[[10,'10%'],[20,'15%'],[50,'20%'],[100,'25%'],[200,'30%']].map(t =>
+        `<div class="tier"><b>${t[1]}</b><span>${t[0]}+ garments</span></div>`).join('')}
+    </div>
+
+    <form id="corpForm" style="margin-top:44px">
+      <div class="f2">
+        <div class="field"><label>Company</label><input name="company" required></div>
+        <div class="field"><label>Your name</label><input name="contact" required></div>
+      </div>
+      <div class="f2">
+        <div class="field"><label>Email</label><input name="email" type="email" required></div>
+        <div class="field"><label>Phone</label><input name="phone" required placeholder="07xx xxx xxx"></div>
+      </div>
+      <div class="f2">
+        <div class="field"><label>How many people?</label>
+          <input name="headcount" type="number" min="1" value="50" required id="corpN"></div>
+        <div class="field"><label>Needed by</label><input name="deadline" type="date" required></div>
+      </div>
+      <div class="field"><label>Garment</label><select name="garment">
+        <option>Two-piece suit</option><option>Three-piece suit</option><option>Blazer and trousers</option>
+        <option>Shirts only</option><option>Mixed uniform programme</option></select></div>
+      <div class="field"><label>Anything else we should know?</label><textarea name="notes" rows="3"></textarea></div>
+      <div class="corp-quote" id="corpQuote"></div>
+      <button class="btn wide" style="margin-top:18px">Request a quote</button>
+      <p class="muted" style="font-size:12px;margin-top:12px;text-align:center">
+        On-site measuring included for orders over 20. We reply within one working day.</p>
+    </form></div><div style="height:80px"></div>`;
+
   V.notfound = () => `<div class="empty" style="padding:160px 20px"><h2>Page not found</h2>
     <p>That page does not exist.</p><a class="btn" href="#/">Back home</a></div>`;
 
@@ -650,6 +725,7 @@
       case 'wishlist': html = V.wishlist(); break;
       case 'search': html = V.search(query); break;
       case 'wedding': html = V.wedding(); break;
+      case 'corporate': html = V.corporate(); break;
       case 'stores': html = V.stores(); break;
       case 'about': html = V.about(); break;
       case 'contact': html = V.contact(); break;
@@ -675,6 +751,27 @@
     if (view === 'bespoke') wireMTM();
     if (view === 'checkout') wireCheckout();
     if (view === 'wedding') wireWedding();
+
+    const cf2 = document.getElementById('corpForm');
+    if (cf2) {
+      const n = document.getElementById('corpN');
+      const q = document.getElementById('corpQuote');
+      const paint = () => {
+        const c = Math.max(1, +n.value || 1);
+        const d = SH.corporateTier(c);
+        q.innerHTML = `<div class="corp-line"><span>${c} garments</span>
+          <b>${d ? (d * 100) + '% volume discount' : 'Discount starts at 10 garments'}</b></div>
+          ${c >= 20 ? '<div class="corp-line"><span>On-site measuring</span><b>Included</b></div>' : ''}
+          <div class="corp-line"><span>Alterations for every garment</span><b>Included</b></div>`;
+      };
+      n.oninput = paint; paint();
+      cf2.onsubmit = e => {
+        e.preventDefault();
+        SH.addCorporate(Object.fromEntries(new FormData(cf2)));
+        cf2.reset(); paint();
+        toast('Quote requested - we will call within one working day');
+      };
+    }
 
     const sp = document.getElementById('searchPage');
     if (sp) sp.onsubmit = e => { e.preventDefault(); go('/search?q=' + encodeURIComponent(sp.q.value)); };
@@ -734,10 +831,10 @@
       if (b.disabled) return;
       box.querySelectorAll('.sizes button').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); size = b.dataset.size;
-      const n = SH.stockTotal(p.stock, size);
+      const n = SH.branchTotal(p, size);
       stockEl.innerHTML = `<span class="dot ${n > 3 ? '' : 'low'}"></span>${n > 3 ? 'In stock' : `Only ${n} left`} in size ${size}`;
       box.querySelectorAll('[data-b]').forEach(el => {
-        const q = p.stock[size][el.dataset.b];
+        const q = SH.stockAt(p.slug, size, el.dataset.b);
         el.textContent = q ? `${q} in stock` : 'None';
         el.style.color = q ? '' : 'var(--ink-4)';
       });
@@ -813,11 +910,30 @@
       const d = Object.fromEntries(new FormData(f));
       const btn = f.querySelector('button[type=submit],button:not([type])');
       if (d.pay === 'M-Pesa') {
-        btn.disabled = true; btn.textContent = 'Sending STK push...';
+        // Build the real Daraja STK Push body. Live mode POSTs this to Safaricom; demo mode
+        // resolves it locally with the same result codes Safaricom returns.
+        const phone = d.mpesa || d.phone;
+        const push = SH.mpesaStkPush({
+          phone: phone, amount: cart.total,
+          reference: 'SH-' + Date.now().toString().slice(-6),
+          description: "Sir Henry's online order"
+        });
+        btn.disabled = true;
+        showStk(phone, cart.total);
         setTimeout(() => {
-          const o = SH.placeOrder({ customer: { name: d.name, email: d.email, phone: d.phone }, payment: d.pay, branch: d.branch, alterations: d.alterations });
+          const res = SH.mpesaResolve(push.checkoutId, 'success');
+          if (res.ResultCode !== 0) {
+            hideStk(); btn.disabled = false;
+            toast(res.ResultDesc);
+            return;
+          }
+          const o = SH.placeOrder({ customer: { name: d.name, email: d.email, phone: d.phone },
+            payment: d.pay, branch: d.branch, alterations: d.alterations });
+          o.mpesaReceipt = res.MpesaReceiptNumber;
+          SH.emit();
+          hideStk();
           go('/order/' + o.id);
-        }, 1400);
+        }, 2600);
         return;
       }
       const o = SH.placeOrder({ customer: { name: d.name, email: d.email, phone: d.phone }, payment: d.pay, branch: d.branch, alterations: d.alterations });
@@ -891,6 +1007,31 @@
     paint();
   }
 
+  /* The STK wait is the moment a Kenyan checkout either works or loses the sale, so it
+     gets a real screen rather than a spinner: what to look for, and how to recover. */
+  function showStk(phone, amount) {
+    let el = document.getElementById('stk');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'stk';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `<div class="stk-card">
+      <div class="stk-pulse"><span></span><span></span><span></span></div>
+      <h3>Check your phone</h3>
+      <p>We have sent a payment request for <b>${fmt(amount)}</b> to <b>${esc(phone)}</b>.</p>
+      <p class="stk-do">Enter your M-Pesa PIN to confirm.</p>
+      <div class="stk-note">Did not get it? Dial <b>*334#</b> or tap Resend after 30 seconds.</div>
+    </div>`;
+    el.classList.add('on');
+    if (window.Motion) Motion.stopScroll();
+  }
+  function hideStk() {
+    const el = document.getElementById('stk');
+    if (el) el.classList.remove('on');
+    if (window.Motion) Motion.startScroll();
+  }
+
   /* ---------- size finder ---------- */
   function openFit() {
     const m = document.getElementById('fitModal');
@@ -920,6 +1061,8 @@
     document.getElementById('cartSub').textContent = fmt(cart.subtotal);
     document.getElementById('cartShip').textContent = cart.shipping ? fmt(cart.shipping) : 'Free';
     document.getElementById('cartTot').textContent = fmt(cart.total);
+    const wa = document.getElementById('waOrder');
+    if (wa) { wa.href = waBasket(); wa.style.display = state.cart.length ? '' : 'none'; }
   }
 
   const openCart = () => {

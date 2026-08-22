@@ -61,8 +61,296 @@
     </svg>`;
   }
 
+  /* ================= staff authentication =================
+     The console was reachable by anyone with the URL. This gates it and limits what each
+     role can open. Demo-grade only: a real deployment must authenticate server-side. */
+  const AUTH_KEY = 'sirhenrys.staff';
+  function currentStaff() {
+    try { return JSON.parse(sessionStorage.getItem(AUTH_KEY) || 'null'); } catch (e) { return null; }
+  }
+  function signIn(id, pin) {
+    const m = SH.STAFF.find(s => s.id === id && s.pin === String(pin));
+    if (!m) return null;
+    const { pin: _, ...safe } = m;
+    sessionStorage.setItem(AUTH_KEY, JSON.stringify(safe));
+    return safe;
+  }
+  function signOut() { sessionStorage.removeItem(AUTH_KEY); location.reload(); }
+  const can = (view) => {
+    const s = currentStaff();
+    return !!s && (SH.ROLE_VIEWS[s.role] || []).includes(view);
+  };
+
+  function renderLogin() {
+    document.body.classList.add('locked');
+    document.body.innerHTML = `
+      <div class="login">
+        <div class="login-card">
+          <div class="login-mark">SIR HENRY'S<small>Staff Console</small></div>
+          <p class="login-hint">Sign in to continue.</p>
+          <div class="login-list">
+            ${SH.STAFF.map(s => `<button class="login-who" data-staff="${s.id}">
+              <b>${esc(s.name)}</b><span>${esc(s.title)}</span></button>`).join('')}
+          </div>
+          <form id="pinForm" class="hide">
+            <div class="field"><label id="pinWho">PIN</label>
+              <input id="pinInput" type="password" inputmode="numeric" maxlength="4"
+                     autocomplete="off" placeholder="4-digit PIN"></div>
+            <button class="btn" style="width:100%">Sign in</button>
+            <p class="login-err hide" id="pinErr">That PIN is not right.</p>
+            <button type="button" class="login-back" id="pinBack">Choose someone else</button>
+          </form>
+          <p class="login-demo">Demo PINs &mdash; Owner 1967 &middot; Manager 2468 &middot; Shop floor 1357</p>
+        </div>
+      </div>`;
+    let who = null;
+    document.querySelectorAll('[data-staff]').forEach(b => b.onclick = () => {
+      who = b.dataset.staff;
+      document.querySelector('.login-list').classList.add('hide');
+      document.getElementById('pinForm').classList.remove('hide');
+      document.getElementById('pinWho').textContent = 'PIN for ' + SH.STAFF.find(s => s.id === who).name;
+      document.getElementById('pinInput').focus();
+    });
+    document.getElementById('pinBack').onclick = () => location.reload();
+    document.getElementById('pinForm').onsubmit = e => {
+      e.preventDefault();
+      if (signIn(who, document.getElementById('pinInput').value)) location.reload();
+      else {
+        document.getElementById('pinErr').classList.remove('hide');
+        document.getElementById('pinInput').value = '';
+        document.getElementById('pinInput').focus();
+      }
+    };
+  }
+
+  /* ================= barcode rendering =================
+     EAN-13 drawn as SVG bars from the encoding tables - no library, and it scans. */
+  const EAN_L = ['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
+  const EAN_G = ['0100111','0110011','0011011','0100001','0011101','0111001','0000101','0010001','0001001','0010111'];
+  const EAN_R = ['1110010','1100110','1101100','1000010','1011100','1001110','1010000','1101110','1100010','1110100'];
+  const PARITY = ['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG','LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL'];
+  function barcodeSVG(code, h = 46) {
+    if (!/^\d{13}$/.test(code)) return '';
+    let bits = '101';
+    const par = PARITY[+code[0]];
+    for (let i = 1; i <= 6; i++) bits += (par[i - 1] === 'L' ? EAN_L : EAN_G)[+code[i]];
+    bits += '01010';
+    for (let i = 7; i <= 12; i++) bits += EAN_R[+code[i]];
+    bits += '101';
+    let x = 0, rects = '';
+    for (const b of bits) { if (b === '1') rects += `<rect x="${x}" y="0" width="1" height="${h}"/>`; x++; }
+    return `<svg class="bc" viewBox="0 0 ${bits.length} ${h + 11}" preserveAspectRatio="none" role="img"
+      aria-label="Barcode ${code}"><g fill="#151515">${rects}</g>
+      <text x="${bits.length / 2}" y="${h + 9}" text-anchor="middle" font-size="8"
+        font-family="monospace" fill="#151515">${code}</text></svg>`;
+  }
+
   /* ---------- views ---------- */
   const V = {};
+
+  /* ================= POS - the till =================
+     Replaces Shopify POS Pro at $89/store/month x 5. Scan or search, take payment,
+     complete - and the branch stock and the storefront both update from that one action. */
+  let posBasket = [], posBranch = null, posPay = 'M-Pesa';
+
+  V.pos = () => {
+    const staff = currentStaff();
+    posBranch = posBranch || (staff && staff.store) || BRANCHES[0].id;
+    const b = BRANCHES.find(x => x.id === posBranch) || BRANCHES[0];
+    const total = posBasket.reduce((a, l) => a + l.price * l.qty, 0);
+    const count = posBasket.reduce((a, l) => a + l.qty, 0);
+    return `
+    <div class="top"><div><h1>Till</h1><p>Serving from ${esc(b.name)} &middot; ${esc(staff ? staff.name : '')}</p></div>
+      <div class="fbar">${BRANCHES.map(x => `<button class="chip ${x.id === posBranch ? 'on' : ''}"
+        data-posbranch="${x.id}">${esc(x.name.split(',')[0])}</button>`).join('')}</div></div>
+
+    <div class="pos">
+      <div class="pos-left">
+        <div class="panel"><div class="panel-bd">
+          <div class="field" style="margin:0">
+            <label>Scan a barcode or search</label>
+            <input id="posScan" class="pos-scan" autocomplete="off"
+              placeholder="Scan tag, or type a name / SKU..." autofocus>
+          </div>
+          <div id="posResults" class="pos-results"></div>
+        </div></div>
+      </div>
+
+      <div class="pos-right">
+        <div class="panel pos-basket"><div class="panel-hd"><b>Basket</b>
+          <span class="pill grey">${count} item${count === 1 ? '' : 's'}</span></div>
+          <div class="panel-bd" style="padding:0" id="posLines">
+            ${posBasket.length ? posBasket.map((l, i) => {
+              const p = byId(l.slug);
+              return `<div class="pos-line">
+                <img class="thumb" src="${(p.thumbs || p.images)[0]}" alt="">
+                <div><b>${esc(p.title)}</b><span>Size ${esc(l.size)} &middot; ${KSh(l.price)}</span></div>
+                <div class="pos-qty">
+                  <button data-posq="-1" data-i="${i}">&minus;</button><span>${l.qty}</span>
+                  <button data-posq="1" data-i="${i}">+</button>
+                </div>
+                <b class="pos-lt">${KSh(l.price * l.qty)}</b>
+                <button class="pos-x" data-posrm="${i}" aria-label="Remove">&times;</button>
+              </div>`; }).join('')
+              : '<div class="empty">Scan a tag to begin.</div>'}
+          </div>
+          <div class="pos-foot">
+            <div class="pos-total"><span>Total</span><b>${KSh(total)}</b></div>
+            <div class="fbar" style="margin:12px 0">
+              ${['M-Pesa', 'Card', 'Cash'].map(m => `<button class="chip ${posPay === m ? 'on' : ''}" data-pospay="${m}">${m}</button>`).join('')}
+            </div>
+            <div id="posPayBox">${posPayBox(total)}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  function posPayBox(total) {
+    if (!total) return '';
+    if (posPay === 'M-Pesa') return `
+      <div class="field" style="margin:0 0 10px"><label>Customer phone</label>
+        <input id="posPhone" placeholder="07xx xxx xxx" inputmode="tel"></div>
+      <button class="btn" style="width:100%" id="posComplete">Send STK push &middot; ${KSh(total)}</button>
+      <p class="pos-note">A prompt goes to the customer phone. They enter their M-Pesa PIN.</p>`;
+    if (posPay === 'Cash') return `
+      <div class="field" style="margin:0 0 10px"><label>Cash received</label>
+        <input id="posCash" type="number" inputmode="numeric" placeholder="${Math.ceil(total / 100) * 100}"></div>
+      <div class="pos-change" id="posChange">Change: &mdash;</div>
+      <button class="btn" style="width:100%" id="posComplete">Complete sale &middot; ${KSh(total)}</button>`;
+    return `<button class="btn" style="width:100%" id="posComplete">Charge card &middot; ${KSh(total)}</button>`;
+  }
+
+  function wirePos() {
+    const scan = document.getElementById('posScan');
+    const results = document.getElementById('posResults');
+    if (!scan) return;
+
+    const draw = (list) => {
+      results.innerHTML = list.length ? list.map(h => `
+        <button class="pos-hit" data-add="${h.p.slug}" data-size="${esc(h.size)}" ${h.n ? '' : 'disabled'}>
+          <img class="thumb" src="${(h.p.thumbs || h.p.images)[0]}" alt="">
+          <div><b>${esc(h.p.title)}</b><span>Size ${esc(h.size)} &middot; ${SH.skuFor(h.p.slug, h.size)}</span></div>
+          <span class="pill ${h.n ? (h.n <= 2 ? 'warn' : 'ok') : 'bad'}">${h.n ? h.n + ' here' : 'none here'}</span>
+          <b>${KSh(h.p.price)}</b>
+        </button>`).join('') : '<div class="empty">Nothing matches.</div>';
+      results.querySelectorAll('[data-add]').forEach(b =>
+        b.onclick = () => addToBasket(b.dataset.add, b.dataset.size));
+    };
+
+    const runSearch = (q) => {
+      q = q.trim();
+      if (!q) { results.innerHTML = ''; return; }
+      // a scanner types the whole code then hits Enter, so try an exact code match first
+      const hit = SH.lookupCode(q);
+      if (hit) { addToBasket(hit.product.slug, hit.size); scan.value = ''; results.innerHTML = ''; return; }
+      const ql = q.toLowerCase();
+      const list = [];
+      PRODUCTS.forEach(p => {
+        if (!(p.title + ' ' + p.slug).toLowerCase().includes(ql)) return;
+        p.sizes.forEach(size => list.push({ p: p, size: size, n: SH.stockAt(p.slug, size, posBranch) }));
+      });
+      draw(list.slice(0, 24));
+    };
+
+    scan.oninput = () => runSearch(scan.value);
+    scan.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); runSearch(scan.value); } };
+
+    view.querySelectorAll('[data-posbranch]').forEach(b => b.onclick = () => { posBranch = b.dataset.posbranch; render(); });
+    view.querySelectorAll('[data-pospay]').forEach(b => b.onclick = () => { posPay = b.dataset.pospay; render(); });
+    view.querySelectorAll('[data-posq]').forEach(b => b.onclick = () => {
+      const l = posBasket[+b.dataset.i];
+      const max = SH.stockAt(l.slug, l.size, posBranch);
+      l.qty = Math.max(1, Math.min(max, l.qty + (+b.dataset.posq)));
+      render();
+    });
+    view.querySelectorAll('[data-posrm]').forEach(b => b.onclick = () => { posBasket.splice(+b.dataset.posrm, 1); render(); });
+
+    const cash = document.getElementById('posCash');
+    if (cash) cash.oninput = () => {
+      const t = posBasket.reduce((a, l) => a + l.price * l.qty, 0);
+      const c = +cash.value || 0;
+      document.getElementById('posChange').textContent =
+        c >= t ? 'Change: ' + KSh(c - t) : 'Short by ' + KSh(t - c);
+    };
+
+    const done = document.getElementById('posComplete');
+    if (done) done.onclick = () => completeSale(done);
+  }
+
+  function addToBasket(slug, size) {
+    const have = SH.stockAt(slug, size, posBranch);
+    if (!have) { toast('None of that size at this store'); return; }
+    const line = posBasket.find(l => l.slug === slug && l.size === size);
+    if (line) {
+      if (line.qty >= have) { toast('Only ' + have + ' in stock here'); return; }
+      line.qty++;
+    } else {
+      posBasket.push({ slug: slug, size: size, qty: 1, price: byId(slug).price });
+    }
+    render();
+    const s = document.getElementById('posScan'); if (s) { s.value = ''; s.focus(); }
+  }
+
+  function completeSale(btn) {
+    const total = posBasket.reduce((a, l) => a + l.price * l.qty, 0);
+    if (!total) return;
+    const staff = currentStaff();
+    const finish = (receipt) => {
+      const sale = SH.recordSale({ lines: posBasket.slice(), branch: posBranch,
+        payment: posPay, staff: staff ? staff.name : 'Staff', mpesaReceipt: receipt });
+      posBasket = [];
+      showReceipt(sale);
+      render();
+    };
+
+    if (posPay === 'M-Pesa') {
+      const el = document.getElementById('posPhone');
+      const phone = el ? el.value : '';
+      if (String(phone).replace(/\D/g, '').length < 9) { toast('Enter the customer phone number'); return; }
+      const push = SH.mpesaStkPush({ phone: phone, amount: total, reference: 'SH-TILL', description: 'In-store purchase' });
+      btn.disabled = true; btn.textContent = 'Waiting for PIN...';
+      setTimeout(() => {
+        const res = SH.mpesaResolve(push.checkoutId, 'success');
+        if (res.ResultCode === 0) finish(res.MpesaReceiptNumber);
+        else { btn.disabled = false; toast(res.ResultDesc); }
+      }, 1600);
+      return;
+    }
+    if (posPay === 'Cash') {
+      const el = document.getElementById('posCash');
+      const c = el ? (+el.value || 0) : 0;
+      if (c < total) { toast('Cash received is less than the total'); return; }
+    }
+    finish(null);
+  }
+
+  function showReceipt(sale) {
+    const b = BRANCHES.find(x => x.id === sale.branch);
+    document.getElementById('dwTitle').textContent = sale.id;
+    document.getElementById('dwBody').innerHTML = `
+      <div class="receipt">
+        <div class="r-mark">SIR HENRY&rsquo;S</div>
+        <div class="r-sub">${esc(b ? b.name : '')}<br>${esc(b ? b.tel : '')}</div>
+        <div class="r-rule"></div>
+        ${sale.lines.map(l => { const p = byId(l.slug); return `
+          <div class="r-line"><span>${esc(p.title)}<br><i>Size ${esc(l.size)} &times; ${l.qty}</i></span>
+          <b>${KSh(l.price * l.qty)}</b></div>`; }).join('')}
+        <div class="r-rule"></div>
+        <div class="r-line r-total"><span>Total</span><b>${KSh(sale.total)}</b></div>
+        <div class="r-line"><span>Paid by ${esc(sale.payment)}</span>
+          <b>${sale.mpesaReceipt ? esc(sale.mpesaReceipt) : ''}</b></div>
+        <div class="r-rule"></div>
+        <div class="r-foot">Served by ${esc(sale.staff)}<br>
+          ${new Date(sale.date).toLocaleString('en-GB')}<br><br>
+          Complimentary alterations on all suits, for life.<br>Thank you.</div>
+      </div>`;
+    const save = document.getElementById('dwSave');
+    save.textContent = 'Print';
+    save.onclick = () => window.print();
+    document.getElementById('dw').classList.add('on');
+    document.getElementById('scrim').classList.add('on');
+  }
 
   V.dashboard = () => {
     const orders = state.orders;
@@ -145,7 +433,7 @@
     const sizes = ['46', '48', '50', '52', '54', '56', '58', 'S', 'M', 'L', 'XL', 'XXL', '39', '40', '41', '42', '43', '44', '45', 'One Size'];
     const br = new URLSearchParams(q || '').get('branch');
     const branch = BRANCHES.find(b => b.id === br);
-    const val = (p, s) => branch ? p.stock[s][branch.id] : SH.stockTotal(p.stock, s);
+    const val = (p, s) => branch ? SH.stockAt(p.slug, s, branch.id) : SH.branchTotal(p, s);
     const rowTotal = p => p.sizes.reduce((a, s) => a + val(p, s), 0);
     return `<div class="top"><div><h1>Inventory</h1>
       <p>${branch ? 'Stock at ' + esc(branch.name) : 'Stock across all four stores'} &mdash; the view Shopify makes you buy an app for.</p></div></div>
@@ -155,6 +443,10 @@
           ${BRANCHES.map(b => `<a class="chip ${br === b.id ? 'on' : ''}" href="#/inventory?branch=${b.id}">${esc(b.name.split(',')[0])}</a>`).join('')}
         </div>
         <div class="fbar"><span class="pill ok">Healthy</span><span class="pill warn">Low</span><span class="pill bad">Out</span></div></div>
+      <div class="fbar" style="margin:-8px 0 18px">
+        <button class="btn ghost sm" id="tagSheet">Print barcode tags</button>
+        <span class="muted" style="font-size:12px">Their live catalogue has no barcodes at all &mdash; these are generated.</span>
+      </div>
       <div class="matrix"><table><thead><tr><th>Product</th>
         ${sizes.map(s => `<th class="num">${s}</th>`).join('')}<th class="num">Total</th></tr></thead>
       <tbody>${PRODUCTS.map(p => `<tr>
@@ -162,7 +454,7 @@
         ${sizes.map(s => {
           if (!p.sizes.includes(s)) return '<td style="color:var(--ink-4)">&middot;</td>';
           const n = val(p, s);
-          return `<td><span class="cellv ${n === 0 ? 'z' : n <= 2 ? 'l' : 'g'}" title="${BRANCHES.map(b => b.name + ': ' + p.stock[s][b.id]).join(' | ')}">${n}</span></td>`;
+          return `<td><span class="cellv ${n === 0 ? 'z' : n <= 2 ? 'l' : 'g'}" title="${BRANCHES.map(b => b.name + ': ' + SH.stockAt(p.slug, s, b.id)).join(' | ')}&#10;SKU ${SH.skuFor(p.slug, s)}&#10;${SH.barcodeFor(p.slug, s)}">${n}</span></td>`;
         }).join('')}
         <td class="num"><b>${rowTotal(p)}</b></td></tr>`).join('')}</tbody></table></div></div>`;
   };
@@ -218,6 +510,95 @@
             Cut from a single bolt so every jacket matches &mdash; reserve ${(o.members.length * 3.4).toFixed(1)}m of cloth.</p>
         </div>`; }).join('')
         : '<div class="empty">No group quotes yet. Build one on the storefront to see it here.</div>'}</div>`;
+  };
+
+  /* ================= alterations =================
+     Free lifetime alterations is their stated differentiator and nothing tracks it today.
+     Each stage writes a notification the customer would receive by SMS. */
+  V.alterations = () => {
+    const list = state.alterations;
+    const late = list.filter(a => a.status !== 'Collected' && new Date(a.promised) < new Date()).length;
+    return `<div class="top"><div><h1>Alterations</h1>
+      <p>${list.length} job${list.length === 1 ? '' : 's'}${late ? ' &middot; <b style="color:var(--bad)">' + late + ' past the promised date</b>' : ''}</p></div>
+      <button class="btn" id="altNew">Book a garment in</button></div>
+
+      <div class="panel"><div class="panel-bd" id="altForm" style="display:none">
+        <div class="f3">
+          <div class="field"><label>Customer</label><input id="af-name"></div>
+          <div class="field"><label>Phone</label><input id="af-phone" placeholder="07xx xxx xxx"></div>
+          <div class="field"><label>Garment</label><input id="af-garment" placeholder="e.g. Carlo Calvino 3 Piece"></div>
+        </div>
+        <div class="f3">
+          <div class="field"><label>Sleeve</label><input id="af-sleeve" placeholder="-1.5cm"></div>
+          <div class="field"><label>Waist</label><input id="af-waist" placeholder="+2cm"></div>
+          <div class="field"><label>Hem</label><input id="af-hem" placeholder="31in"></div>
+        </div>
+        <div class="f3">
+          <div class="field"><label>Taper</label><select id="af-taper"><option>no</option><option>yes</option></select></div>
+          <div class="field"><label>Store</label><select id="af-branch">
+            ${BRANCHES.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>
+          <div class="field"><label>Promised</label><input id="af-promised" type="date"></div>
+        </div>
+        <button class="btn" id="altSave">Book in</button>
+      </div></div>
+
+      ${list.length ? list.map(a => {
+        const overdue = a.status !== 'Collected' && new Date(a.promised) < new Date();
+        return `<div class="panel">
+          <div class="panel-hd">
+            <div><b>${esc(a.id)} &middot; ${esc(a.customer)}</b>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:4px">
+                ${esc(a.garment)} &middot; ${esc((BRANCHES.find(b => b.id === a.branch) || {}).name || '')}
+                &middot; promised ${esc(a.promised)}${overdue ? ' <span class="pill bad">overdue</span>' : ''}</div></div>
+            <div class="steps" style="margin:0;max-width:420px">
+              ${SH.ALT_STAGES.map((st, i) => {
+                const at = SH.ALT_STAGES.indexOf(a.status);
+                return `<button data-altstage="${esc(st)}" data-altid="${esc(a.id)}"
+                  class="${i < at ? 'done' : ''} ${i === at ? 'now' : ''}">${st}</button>`;
+              }).join('')}
+            </div>
+          </div>
+          <div class="panel-bd">
+            <div class="alt-work">
+              ${Object.entries(a.work || {}).filter(w => w[1]).map(w =>
+                `<span class="pill grey">${esc(w[0])}: ${esc(w[1])}</span>`).join('') || '<span class="muted">No measurements recorded</span>'}
+            </div>
+            <div class="alt-log">
+              ${(a.log || []).map(l => `<div class="alt-msg">
+                <b>${esc(l.s)}</b><span>${new Date(l.t).toLocaleString('en-GB')}</span>
+                <p>SMS to ${esc(a.phone)}: &ldquo;${esc(l.msg)}&rdquo;</p></div>`).join('')}
+            </div>
+          </div></div>`; }).join('')
+        : '<div class="panel"><div class="empty">Nothing booked in.</div></div>'}`;
+  };
+
+  /* ================= corporate / bulk =================
+     Their own contact page is dedicated to bulk production, served by a plain form. */
+  V.corporate = () => {
+    const list = state.corporate;
+    const suits = list.reduce((a, c) => a + (+c.headcount || 0), 0);
+    return `<div class="top"><div><h1>Corporate &amp; Bulk</h1>
+      <p>${list.length} enquir${list.length === 1 ? 'y' : 'ies'} &middot; ${suits} garments in the pipeline</p></div></div>
+      ${list.length ? list.map(c => {
+        const disc = SH.corporateTier(+c.headcount || 0);
+        return `<div class="panel"><div class="panel-hd">
+          <div><b>${esc(c.id)} &middot; ${esc(c.company)}</b>
+            <div style="font-size:12px;color:var(--ink-3);margin-top:4px">
+              ${esc(c.contact)} &middot; ${esc(c.phone)} &middot; ${esc(c.email)}</div></div>
+          <div class="fbar">
+            ${['New', 'Quoted', 'Won', 'Lost'].map(st =>
+              `<button class="chip ${c.status === st ? 'on' : ''}" data-corp="${esc(c.id)}" data-corpst="${st}">${st}</button>`).join('')}
+          </div></div>
+          <div class="panel-bd">
+            <div class="f3">
+              <div><label class="lbl">Headcount</label><div class="big">${esc(c.headcount)}</div></div>
+              <div><label class="lbl">Garment</label><div class="big" style="font-size:16px">${esc(c.garment)}</div></div>
+              <div><label class="lbl">Volume discount</label><div class="big" style="color:var(--bronze)">${(disc * 100)}%</div></div>
+            </div>
+            <p style="font-size:13px;color:var(--ink-3);margin:14px 0 0">
+              Needed by ${esc(c.deadline)}. ${esc(c.notes || '')}</p>
+          </div></div>`; }).join('')
+        : '<div class="panel"><div class="empty">No enquiries yet.</div></div>'}`;
   };
 
   V.customers = () => {
@@ -345,19 +726,81 @@
 
   /* ---------- router ---------- */
   function render() {
-    const raw = location.hash.slice(1) || '/dashboard';
+    const staff = currentStaff();
+    if (!staff) { renderLogin(); return; }
+
+    const raw = location.hash.slice(1) || '';
     const [path, q] = raw.split('?');
-    const key = path.split('/').filter(Boolean)[0] || 'dashboard';
-    view.innerHTML = (V[key] || V.dashboard)(q);
+    let key = path.split('/').filter(Boolean)[0] || '';
+    const allowed = SH.ROLE_VIEWS[staff.role] || [];
+    if (!key) key = allowed[0];                       // land somewhere this role can actually use
+    if (!V[key] || !allowed.includes(key)) {
+      view.innerHTML = `<div class="top"><div><h1>Not available</h1>
+        <p>Your account (${esc(staff.title)}) does not have access to that section.</p></div></div>`;
+      paintNav(staff, allowed, null);
+      return;
+    }
+    view.innerHTML = V[key](q);
+    paintNav(staff, allowed, key);
     if (key === 'inventory' || key === 'orders') { /* query-driven views re-render on hashchange */ }
-    document.querySelectorAll('.side a[data-nav]').forEach(a =>
-      a.classList.toggle('on', a.dataset.nav === key));
     wire(key);
     window.scrollTo(0, 0);
   }
 
+  // hide what this role cannot open, and show who is signed in
+  function paintNav(staff, allowed, key) {
+    document.querySelectorAll('.side a[data-nav]').forEach(a => {
+      const ok = allowed.includes(a.dataset.nav);
+      a.style.display = ok ? '' : 'none';
+      a.classList.toggle('on', a.dataset.nav === key);
+    });
+    document.querySelectorAll('.side h6').forEach(h => {
+      let n = h.nextElementSibling, any = false;
+      while (n && n.tagName === 'A') { if (n.style.display !== 'none') any = true; n = n.nextElementSibling; }
+      h.style.display = any ? '' : 'none';
+    });
+    const box = document.getElementById('whoami');
+    if (box) box.innerHTML = `<b>${esc(staff.name)}</b><span>${esc(staff.title)}</span>
+      <button id="signout">Sign out</button>`;
+    const so = document.getElementById('signout');
+    if (so) so.onclick = signOut;
+  }
+
   function wire(key) {
+    if (key === 'pos') wirePos();
     view.querySelectorAll('[data-order]').forEach(r => r.onclick = () => openOrder(r.dataset.order));
+
+    // alterations: advance a stage, or book a garment in
+    view.querySelectorAll('[data-altstage]').forEach(b => b.onclick = () => {
+      SH.advanceAlteration(b.dataset.altid, b.dataset.altstage);
+      render(); toast('Customer notified: ' + b.dataset.altstage);
+    });
+    const altNew = document.getElementById('altNew');
+    if (altNew) altNew.onclick = () => {
+      const f = document.getElementById('altForm');
+      f.style.display = f.style.display === 'none' ? '' : 'none';
+    };
+    const altSave = document.getElementById('altSave');
+    if (altSave) altSave.onclick = () => {
+      const g = id => (document.getElementById(id) || {}).value || '';
+      if (!g('af-name') || !g('af-garment')) { toast('Name and garment are required'); return; }
+      SH.addAlteration({
+        customer: g('af-name'), phone: g('af-phone'), garment: g('af-garment'),
+        branch: g('af-branch'), promised: g('af-promised') || new Date(Date.now() + 5 * 864e5).toISOString().slice(0, 10),
+        order: '', work: { sleeve: g('af-sleeve'), waist: g('af-waist'), hem: g('af-hem'), taper: g('af-taper') }
+      });
+      render(); toast('Booked in');
+    };
+
+    // corporate pipeline
+    view.querySelectorAll('[data-corp]').forEach(b => b.onclick = () => {
+      const c = state.corporate.find(x => x.id === b.dataset.corp);
+      if (c) { c.status = b.dataset.corpst; SH.emit(); render(); toast(c.company + ': ' + c.status); }
+    });
+
+    // printable barcode tags for the whole catalogue
+    const tag = document.getElementById('tagSheet');
+    if (tag) tag.onclick = () => openTagSheet();
 
     view.querySelectorAll('[data-price]').forEach(inp => inp.onchange = () => {
       const p = byId(inp.dataset.price);
@@ -387,6 +830,39 @@
     };
     const rd = document.getElementById('resetDemo');
     if (rd) rd.onclick = () => { SH.reset(); render(); toast('Demo data reset'); };
+  }
+
+  function openTagSheet() {
+    const rows = [];
+    PRODUCTS.forEach(p => p.sizes.forEach(size => {
+      rows.push(`<div class="tag-cell">
+        <div class="tag-name">${esc(p.title)}</div>
+        <div class="tag-meta">Size ${esc(size)} &middot; ${KSh(p.price)}</div>
+        ${barcodeSVG(SH.barcodeFor(p.slug, size))}
+        <div class="tag-sku">${SH.skuFor(p.slug, size)}</div>
+      </div>`);
+    }));
+    const w = window.open('', '_blank');
+    if (!w) { toast('Allow pop-ups to print tags'); return; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8">
+      <title>Sir Henry's - barcode tags</title><style>
+      body{font-family:Archivo,system-ui,sans-serif;margin:14mm;color:#151515}
+      h1{font-size:15px;letter-spacing:.2em;text-transform:uppercase;margin:0 0 4px}
+      .sub{font-size:11px;color:#6f6a65;margin-bottom:16px}
+      .sheet{display:grid;grid-template-columns:repeat(4,1fr);gap:8mm}
+      .tag-cell{border:1px solid #e6e2dd;padding:7px;text-align:center;break-inside:avoid}
+      .tag-name{font-size:9px;font-weight:600;line-height:1.25;height:24px;overflow:hidden}
+      .tag-meta{font-size:8px;color:#6f6a65;margin:2px 0 5px}
+      .bc{width:100%;height:44px}
+      .tag-sku{font-family:monospace;font-size:8px;margin-top:3px;color:#3c3a37}
+      @media print{@page{margin:10mm}}
+      </style></head><body>
+      <h1>Sir Henry&rsquo;s &mdash; barcode tags</h1>
+      <div class="sub">${rows.length} variants &middot; EAN-13 &middot; generated ${new Date().toLocaleDateString('en-GB')}</div>
+      <div class="sheet">${rows.join('')}</div>
+      <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script>
+      </body></html>`);
+    w.document.close();
   }
 
   document.addEventListener('click', e => {
