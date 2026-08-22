@@ -66,6 +66,11 @@ Dashboard with suggested inter-branch transfers, analytics, orders with editable
 workshop notes, products with inline price editing, a per-store inventory matrix, customers
 with lifetime value, fittings, made-to-measure commissions, and wedding groups.
 
+It also carries **the till (POS)** — scan a barcode or search, take M-Pesa/card/cash, print a
+receipt, and the sale decrements stock at that branch only. That single screen is what replaces
+Shopify POS Pro at $89 per store per month. Alterations and a corporate/bulk pipeline sit
+alongside it, and Inventory can print EAN-13 tags for the whole catalogue.
+
 ---
 
 ## Things Shopify won't do
@@ -105,6 +110,10 @@ tools/shoot.js       headless screenshot + health harness (needs puppeteer-core)
 tools/seqtest.js     proves the sequence runs forward and reverse
 tools/bundle.py      inlines everything into one portable .html
 tools/gen.ps1        image generation runner (Higgsfield CLI)
+tools/admintest.js   headless test: auth, roles, POS sale, alterations, corporate
+tools/storetest.js   headless test: M-Pesa flow, WhatsApp links, corporate quote, live stock
+TASKS.md             what was built and how each piece was verified
+MPESA-GOING-LIVE.md  what still needs a server before real payments
 ```
 
 **Images are served at the size they are displayed.** Full-resolution plates go to the
@@ -120,14 +129,18 @@ admin thumbnails. Serving 1536px into a 400px card cost roughly 17 MB on the sho
 
 - **Front-end prototype.** No server, so orders, stock and accounts live in the browser and
   reset when you clear storage. Nothing is shared between devices.
-- **M-Pesa is simulated.** The STK-push step waits ~1.4s and confirms. Real integration needs
-  the Daraja API and a backend to hold credentials.
-- **No authentication.** `admin.html` is reachable by anyone with the URL. It needs a staff
-  login before this goes near the public internet.
+- **M-Pesa is simulated.** The request body is Daraja's real shape and Safaricom's real result
+  codes are handled, but nothing is sent — the credentials cannot live in a browser.
+  `MPESA-GOING-LIVE.md` sets out exactly what server work remains.
+- **Staff login is demo-grade.** The console is gated with roles, but the PINs sit in
+  `data.js` where anyone reading source can find them. It stops casual access; it is not
+  security. Real deployment must authenticate server-side.
 - **The catalogue is 19 products**, not the full range. Prices are the real ones from
   `sirhenrys.co.ke`; the copy is written to match their voice, not lifted from them.
 - **Imagery is AI-generated** (Higgsfield Soul 2.0 for stills, Seedance 2.0 for the dressing
   clip). For production these should be photographs of actual Sir Henry's stock — the garments
   shown are representative, not real inventory.
-- **The dressing sequence is capped at 864×496**, the resolution of the source clip. Upscaling
-  would need a pass through a video upscaler.
+- **The dressing sequence was generated at 480p** (the only tier the remaining credits covered)
+  and then upscaled to 4K with Bytedance Video Upscale on the `aigc` preset. Frames are served
+  at 1920px. The upscale adds real detail — measured at 7x the sharpness of a plain Lanczos
+  resize — but it is reconstruction, not originally-captured resolution.
