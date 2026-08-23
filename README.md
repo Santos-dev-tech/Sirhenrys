@@ -102,6 +102,7 @@ firestore.rules      security rules - READ THE HEADER BEFORE GOING LIVE
 tools/set-staff-claims.js     grants real staff accounts their Firestore claim
 assets/css/          site.css (global), admin.css (scoped under .ad)
 assets/js/firebase-config.js  the one file to edit for a different Firebase project
+assets/js/appcheck.js         App Check - must load before any Firebase request
 assets/js/sync.js    Firestore sync, degrades to localStorage
 assets/js/auth.js    customer accounts (Firebase Auth), degrades to a local profile
 assets/js/ai.js      the staff assistant (Firebase AI Logic) - ESM module, network only
@@ -149,6 +150,12 @@ full copy as the offline cache. Reset from **Settings → Reset demo data**.
   in anonymously. That stops casual damage; it does not stop a determined visitor writing to
   the books. The header of `firestore.rules` sets out the three steps to real staff accounts.
   Until those are done, treat the database as public.
+- **App Check is wired but not switched on.** `appCheckSiteKey` in `firebase-config.js` is
+  empty, so the project is reachable by anyone holding the public config in this page. The
+  header of `assets/js/appcheck.js` sets out the two console steps. This is also what gates
+  a customer-facing assistant: a console behind a PIN can only burn the Gemini quota three
+  people at a time, a public page can be scripted until the free tier - or the bill - is
+  gone.
 - **M-Pesa is simulated.** The request body is Daraja's real shape and Safaricom's real result
   codes are handled, but nothing is sent — the credentials cannot live in a browser.
   `MPESA-GOING-LIVE.md` sets out exactly what server work remains.

@@ -30,6 +30,16 @@ window.SH_FIREBASE = {
   // list of live alternatives if this one is ever refused.
   aiModel: 'gemini-3.7-flash',
 
+  /* reCAPTCHA v3 site key for App Check. Create it at google.com/recaptcha/admin,
+     registering your real domain and NOT localhost - whitelisting localhost would let
+     anyone run a copy of this app from their own machine and pass attestation. Leave it
+     empty and App Check stays off, which is the current state: the public config in this
+     file is then all anyone needs to call the project directly.
+
+     Unlike the apiKey below, this one is also public by design. What protects you is
+     that reCAPTCHA only issues tokens to the domains you registered. */
+  appCheckSiteKey: '',
+
   config: {
     apiKey: 'AIzaSyDSfC8bn2GXlBPDQ9DRQZRaV-5ntV0TaCU',
     authDomain: 'sir-henrys.firebaseapp.com',

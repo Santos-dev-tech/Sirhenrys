@@ -175,6 +175,25 @@ async function start() {
     // so getApp() here would not find it. A second client against the same project is
     // the least surprising fix - they do not share state and do not need to.
     const app = getApps().length ? getApp() : initializeApp(cfg.config);
+
+    /* App Check again, separately. appcheck.js attested the COMPAT app; this is the ESM
+       one, and the two SDKs keep separate registries, so a token on one is invisible to
+       the other. Firebase enforces App Check on AI Logic, so without this the assistant
+       is the one service that would still be rejected after everything else passes. */
+    if (cfg.appCheckSiteKey) {
+      try {
+        const { initializeAppCheck, ReCaptchaV3Provider } = await import(SDK + 'firebase-app-check.js');
+        initializeAppCheck(app, {
+          provider: new ReCaptchaV3Provider(cfg.appCheckSiteKey),
+          isTokenAutoRefreshEnabled: true
+        });
+      } catch (e) {
+        // Already attested, or the provider refused. Neither is worth losing the
+        // assistant over - if enforcement is on, the request will say so plainly.
+        console.warn('[ai] app check: ' + (e && e.message));
+      }
+    }
+
     const ai = getAI(app, { backend: new GoogleAIBackend() });
 
     // Which model names a project accepts is not knowable up front - it depends on the

@@ -705,3 +705,45 @@ Two smaller decisions from the same reading:
 suits become order `SH-10245` at **KSh 3,595,560** - `priceCorrect: true`, matching
 120 x 39,950 less the 25% tier the customer was shown on the storefront - `idempotent: true`
 across a second click, and `visibleInOrders: true`.
+
+
+## 21. App Check  `[x]`
+
+The Firebase config in this page is public - it has to be, the browser needs it. So anyone
+can copy it into a script and call the project from anywhere. `firestore.rules` limits
+**what** they can do; App Check limits **whether the request came from this site at all**.
+
+It is also the thing gating a customer-facing assistant. A console behind a PIN can only
+burn the Gemini quota three people at a time; a public page can be scripted until the free
+tier is gone, or - with billing on - until the bill is not.
+
+- [x] `firebase-app-check-compat.js` vendored, so this fits the existing pattern with no
+      ESM gymnastics (checked: a compat build exists at every version, unlike AI Logic)
+- [x] `appcheck.js` loads **before** data.js, sync.js and auth.js, and creates the Firebase
+      app they reuse. App Check attaches a token to Firestore, Auth and AI Logic requests,
+      so it has to be activated before any of them makes one
+- [x] The assistant's ESM app is attested **separately**. Compat and ESM keep separate
+      registries, so a token on one is invisible to the other - and Firebase enforces App
+      Check on AI Logic, so without it the assistant would be the one service still
+      rejected after everything else passed
+- [x] Debug mode turns itself on for localhost. A local host cannot pass reCAPTCHA, and
+      whitelisting localhost in reCAPTCHA would let anyone run a copy of the app from
+      their own machine and pass attestation - so a per-machine debug token instead
+- [x] Off by default and harmless when off: with no site key it says so in the console and
+      changes nothing
+
+### The two steps that are yours
+1. **reCAPTCHA v3 site key** at `google.com/recaptcha/admin` - register the real domain,
+   **not** localhost. Put it in `firebase-config.js` as `appCheckSiteKey`.
+2. **Firebase console → App Check** → register this web app with that key, then **enforce**
+   it per service (Firestore, Authentication, AI Logic). Registering alone changes nothing:
+   until you enforce, unattested requests are still served. That is deliberate - it lets
+   you watch the metrics before you start rejecting traffic.
+
+**Verified** by `tools/appchecktest.js` in the unconfigured state, which is what ships:
+SDK loaded, status explains itself, and nothing downstream is harmed - `syncOn: true` with
+a real uid, auth ready, 72 products rendered, no errors.
+
+That test also caught itself lying. A fixed 5s sleep reported `syncOn: false`, because
+anonymous auth had not finished - a slow boot read as a broken one, the same mistake as
+asserting on `display` in task 19b. It now waits on a condition.

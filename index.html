@@ -265,9 +265,14 @@
 <!-- Firebase, vendored rather than pulled off a CDN, the same as lenis and three.
      If these three fail to load the app still runs: sync.js degrades to localStorage. -->
 <script src="assets/js/vendor/firebase-app-compat.js"></script>
+<script src="assets/js/vendor/firebase-app-check-compat.js"></script>
 <script src="assets/js/vendor/firebase-auth-compat.js"></script>
 <script src="assets/js/vendor/firebase-firestore-compat.js"></script>
 <script src="assets/js/firebase-config.js"></script>
+<!-- App Check attaches a token to every Firestore, Auth and AI Logic request, so it has
+     to be activated before any of them makes one. It also creates the Firebase app that
+     the three files below reuse. -->
+<script src="assets/js/appcheck.js"></script>
 <script src="assets/js/data.js"></script>
 <script src="assets/js/sync.js"></script>
 <script src="assets/js/auth.js"></script>
