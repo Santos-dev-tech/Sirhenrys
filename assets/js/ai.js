@@ -182,9 +182,11 @@ async function start() {
        is the one service that would still be rejected after everything else passes. */
     if (cfg.appCheckSiteKey) {
       try {
-        const { initializeAppCheck, ReCaptchaV3Provider } = await import(SDK + 'firebase-app-check.js');
-        initializeAppCheck(app, {
-          provider: new ReCaptchaV3Provider(cfg.appCheckSiteKey),
+        const ac = await import(SDK + 'firebase-app-check.js');
+        const P = (cfg.appCheckProvider || 'enterprise').toLowerCase() === 'v3'
+          ? ac.ReCaptchaV3Provider : ac.ReCaptchaEnterpriseProvider;
+        ac.initializeAppCheck(app, {
+          provider: new P(cfg.appCheckSiteKey),
           isTokenAutoRefreshEnabled: true
         });
       } catch (e) {

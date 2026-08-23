@@ -30,15 +30,24 @@ window.SH_FIREBASE = {
   // list of live alternatives if this one is ever refused.
   aiModel: 'gemini-3.7-flash',
 
-  /* reCAPTCHA v3 site key for App Check. Create it at google.com/recaptcha/admin,
-     registering your real domain and NOT localhost - whitelisting localhost would let
-     anyone run a copy of this app from their own machine and pass attestation. Leave it
-     empty and App Check stays off, which is the current state: the public config in this
-     file is then all anyone needs to call the project directly.
+  /* reCAPTCHA key for App Check. Google retired the old google.com/recaptcha/admin
+     console - every key had to move to Google Cloud by the end of 2025 - so make one at
+     console.cloud.google.com/security/recaptcha, "Create key", type Website. There, the
+     "Key ID" IS the site key. Register your real domain and NOT localhost: whitelisting
+     it would let anyone run a copy of this app from their own machine and pass
+     attestation. Localhost uses a debug token instead - see assets/js/appcheck.js.
 
-     Unlike the apiKey below, this one is also public by design. What protects you is
-     that reCAPTCHA only issues tokens to the domains you registered. */
+     Leave it empty and App Check stays off, which is the current state: the public
+     config below is then all anyone needs to call this project directly.
+
+     Like the apiKey, this one is public by design. What protects you is that reCAPTCHA
+     only issues tokens to the domains you registered. */
   appCheckSiteKey: '',
+
+  // 'enterprise' for a key made in Google Cloud (all new ones), 'v3' for a legacy key
+  // from the old admin console. They need different providers; the wrong one fails loudly
+  // at activation rather than silently letting requests through unattested.
+  appCheckProvider: 'enterprise',
 
   config: {
     apiKey: 'AIzaSyDSfC8bn2GXlBPDQ9DRQZRaV-5ntV0TaCU',

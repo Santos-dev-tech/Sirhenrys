@@ -733,8 +733,16 @@ tier is gone, or - with billing on - until the bill is not.
       changes nothing
 
 ### The two steps that are yours
-1. **reCAPTCHA v3 site key** at `google.com/recaptcha/admin` - register the real domain,
-   **not** localhost. Put it in `firebase-config.js` as `appCheckSiteKey`.
+1. **A reCAPTCHA key.** The link I first gave was dead, and the reason is worth recording:
+   Google **retired** the old `google.com/recaptcha/admin` console and required every key
+   to move to Google Cloud by the end of 2025. New keys are made at
+   `console.cloud.google.com/security/recaptcha` -> Create key -> type **Website**. In that
+   console the **"Key ID" is the site key**. Register the real domain, **not** localhost.
+
+   A Cloud-made key is a reCAPTCHA **Enterprise** key, which needs a different SDK provider
+   from a legacy v3 one - so `appCheckProvider` in `firebase-config.js` selects it, and
+   defaults to `enterprise` because that is all anyone can make today. The wrong one fails
+   loudly at activation rather than silently passing requests through unattested.
 2. **Firebase console → App Check** → register this web app with that key, then **enforce**
    it per service (Firestore, Authentication, AI Logic). Registering alone changes nothing:
    until you enforce, unattested requests are still served. That is deliberate - it lets

@@ -19,10 +19,18 @@
 
    TWO STEPS ARE YOURS, and neither can be done from here:
 
-     1. Create a reCAPTCHA v3 site key at google.com/recaptcha/admin - register
-        your real domain, and do NOT add localhost to it. Adding localhost would let
+     1. Create a reCAPTCHA key and put it in firebase-config.js as appCheckSiteKey.
+        Google retired the old google.com/recaptcha/admin console and required every key
+        to move to Google Cloud by the end of 2025, so new keys are made at
+        console.cloud.google.com/security/recaptcha - "Create key", type Website. In that
+        console the "Key ID" IS the site key.
+        Register your real domain and do NOT add localhost: whitelisting it would let
         anyone run a copy of this app from their own machine and pass attestation.
-        Put the key in firebase-config.js as appCheckSiteKey.
+
+        A Cloud-made key is a reCAPTCHA ENTERPRISE key and needs a different provider
+        from a legacy v3 one, so set appCheckProvider to match - 'enterprise' for a key
+        made in Cloud, 'v3' for an older one that still works. Getting this wrong fails
+        at activation with a provider error rather than silently.
 
      2. Firebase console -> App Check -> register this web app with that key, then
         ENFORCE it per service (Firestore, Authentication, AI Logic). Registering alone
@@ -38,7 +46,7 @@
   'use strict';
 
   const cfg = window.SH_FIREBASE;
-  const st = { on: false, debug: false, error: null };
+  const st = { on: false, debug: false, error: null, provider: null };
   window.SHAppCheck = { status: () => ({ ...st }) };
 
   if (!cfg || !cfg.enabled) return;
@@ -75,14 +83,30 @@
                  'Firebase console -> App Check -> Manage debug tokens. Do not commit it.');
   }
 
+  /* Which provider depends on where the key came from. Keys made in Google Cloud - which
+     is now the only place to make them - are Enterprise keys; a legacy v3 key from the
+     retired admin console uses the other provider. Default to enterprise, because that is
+     what anyone setting this up today will have. */
+  const kind = (cfg.appCheckProvider || 'enterprise').toLowerCase();
+  const Provider = kind === 'v3'
+    ? firebase.appCheck.ReCaptchaV3Provider
+    : firebase.appCheck.ReCaptchaEnterpriseProvider;
+  if (!Provider) {
+    st.error = 'This SDK has no ' + kind + ' provider.';
+    console.warn('[app-check] ' + st.error);
+    return;
+  }
+
   try {
     firebase.appCheck().activate(
-      new firebase.appCheck.ReCaptchaV3Provider(cfg.appCheckSiteKey),
+      new Provider(cfg.appCheckSiteKey),
       true   // refresh the token before it expires, so long sessions do not start failing
     );
     st.on = true;
+    st.provider = kind;
   } catch (e) {
-    st.error = e.message;
-    console.warn('[app-check] ' + e.message + ' - continuing without attestation');
+    st.error = e.message + ' (provider: ' + kind + ' - if the key was made in Google ' +
+               'Cloud it is an Enterprise key; set appCheckProvider accordingly)';
+    console.warn('[app-check] ' + st.error + ' - continuing without attestation');
   }
 })();
