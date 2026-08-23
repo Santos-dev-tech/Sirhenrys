@@ -136,6 +136,27 @@
 </a>
 
 <!-- cart drawer -->
+<!-- The assistant. Lives inside #ad so it is staff-only, and so admin.css reaches it. -->
+<button class="ai-fab" id="aiFab" type="button" aria-label="Ask the shop assistant">
+  <svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+  <span>Ask</span></button>
+
+<aside class="ai" id="aiPanel" aria-label="Shop assistant" data-lenis-prevent hidden>
+  <div class="ai-hd">
+    <b>Shop assistant</b>
+    <span class="ai-state" id="aiState">starting</span>
+    <button class="x" id="aiClose" aria-label="Close">&times;</button>
+  </div>
+  <div class="ai-log" id="aiLog"></div>
+  <div class="ai-sugg" id="aiSugg"></div>
+  <form class="ai-ask" id="aiForm">
+    <input id="aiInput" type="text" autocomplete="off"
+           placeholder="Ask about stock, orders, alterations...">
+    <button class="btn sm" id="aiSend">Ask</button>
+  </form>
+  <p class="ai-note">It suggests; you decide. It cannot change stock, orders or payments.</p>
+</aside>
+
 <div class="scrim" id="scrim"></div>
 <aside class="drawer" id="cartDrawer" aria-label="Shopping bag">
   <div class="drawer-hd"><b>Your bag</b><button class="x" data-close aria-label="Close">&times;</button></div>
@@ -193,7 +214,7 @@
 
 <div id="ad" class="ad" hidden>
 <div class="shell">
-  <aside class="side">
+  <aside class="side" data-lenis-prevent>
     <div class="logo">SIR HENRY'S<small>Staff Console</small></div>
     <nav>
       <h6>Overview</h6>
@@ -231,7 +252,7 @@
 </div>
 
 <div class="scrim" id="scrim"></div>
-<aside class="dw" id="dw" aria-label="Order detail">
+<aside class="dw" id="dw" aria-label="Order detail" data-lenis-prevent>
   <div class="dw-hd"><b id="dwTitle">Order</b><button class="x" data-close aria-label="Close">&times;</button></div>
   <div class="dw-bd" id="dwBody"></div>
   <div class="dw-ft"><button class="btn" id="dwSave">Save changes</button>
@@ -253,6 +274,10 @@
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/app.js"></script>
 <script src="assets/js/admin.js"></script>
+<!-- Firebase AI Logic is ESM-only (no compat build exists at any version, checked), so
+     this one file is a module. bundle.py strips it from the portable build. -->
+<script type="module" src="assets/js/ai.js"></script>
+<script src="assets/js/ai-ui.js"></script>
 <script>Motion.boot(); SHSync.start(); SHAuth.start();</script>
 </body>
 </html>

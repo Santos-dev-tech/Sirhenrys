@@ -79,6 +79,10 @@ def main():
     # only ever fail; sync.js is built to degrade, which is what switching it off does,
     # minus half a megabyte that cannot run.
     html = re.sub(r'<script src="assets/js/vendor/firebase-[^"]+"></script>\s*', '', html)
+    # ai.js is a module fetched from gstatic at runtime; in a file:// bundle it can only
+    # fail, and ai-ui.js has nothing to drive without it.
+    html = re.sub(r'<script type="module" src="assets/js/ai\.js"></script>\s*', '', html)
+    html = re.sub(r'<script src="assets/js/ai-ui\.js"></script>\s*', '', html)
     html = html.replace('  enabled: true,', '  enabled: false,   // portable build: no backend')
     html = html.replace('SHSync.start();', '/* no backend in the portable build */')
 

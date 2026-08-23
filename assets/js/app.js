@@ -778,7 +778,12 @@
        till screen. */
     if (/^\/admin(\/|\?|$)/.test(raw)) {
       if (shop) shop.hidden = true;
-      if (window.Motion) { Motion.unmountRail(); Motion.unmountAnatomy(); Motion.stopScroll(); }
+      // Unmount the WebGL rail and the anatomy controller, but do NOT stop Lenis.
+      // Lenis owns the page's scrolling, so stopping it does not hand scrolling back to
+      // the browser - it removes scrolling altogether, which left the whole console
+      // frozen. It keeps running and smooth-scrolls the console instead; the panels with
+      // their own scrollbars carry data-lenis-prevent so it does not fight them.
+      if (window.Motion) { Motion.unmountRail(); Motion.unmountAnatomy(); Motion.startScroll(); }
       document.title = "Sir Henry's — Staff Console";
       return;
     }

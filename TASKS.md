@@ -493,3 +493,76 @@ flow version managed.
 Flow is still the right tool for the 360, where the pose genuinely rotates - it just failed
 there for the opposite reason, too *much* motion. Both results are recorded so neither gets
 tried the wrong way round again.
+
+
+## 18. The console would not scroll  `[x]`
+
+Entering `#/admin` called `Motion.stopScroll()`. The intent was to stop Lenis hijacking
+the wheel over a till screen; the effect was that nothing scrolled at all. **Lenis owns the
+page's scrolling**, so stopping it does not hand control back to the browser - it removes
+scrolling. The console has been frozen since the merge.
+
+- [x] Lenis keeps running on the admin route and smooth-scrolls the console
+- [x] `.side` and `.dw` carry `data-lenis-prevent`, so the panels with their own
+      scrollbars are not fought over
+
+**Verified** by `tools/scrolltest.js`, which dispatches a **real wheel gesture** rather than
+calling `scrollTo` - `scrollTo` succeeds even when the wheel is dead, so it would have
+reported this bug as fixed while it was not. Inventory and Products both move 540px.
+Orders reports `scrollable:false` because that view is shorter than the viewport.
+
+## 19. The shop assistant  `[x]`
+
+> "can you add ai using firebase and what would it help with and how would it function
+> can it open tabs by itself or does it just give advice"
+> "before doing any task research and find out if it is the best and most efficient way"
+
+**It can act, but only inside this app.** A model in a web page has no access to tabs, the
+OS, or anything outside the document. What it can do is call functions written for it. So
+the answer to "opens tabs or just advises" is: neither, exactly - it drives *this* app, and
+only through three doors that were built for it.
+
+### The research, before writing anything
+
+| Option | Verdict |
+|---|---|
+| Gemini REST from the page | **Rejected.** Needs an API key in the page. That key is billable and public the moment it ships. |
+| Cloud Function proxy | **Rejected.** Blaze plan, deploy pipeline, another moving part - and no security gain over the option below, which already keeps the key off the client. |
+| **Firebase AI Logic** | **Chosen.** Proxies through Firebase so the Gemini key never reaches the browser, needs no server, runs on the free tier. |
+
+One constraint found the hard way and worth recording: **Firebase AI Logic ships ESM only.**
+`firebase-ai-compat.js` returns 404 at every version checked (10.14.1, 11.10.0, 12.0.0,
+12.3.0). But gstatic serves a browser-native ESM whose own imports are absolute URLs, so it
+runs from a plain `<script type="module">` with no bundler - which is the whole point of
+this project having no build step. That makes `ai.js` the only file fetched at runtime, and
+it costs nothing that was not already lost: an assistant that talks to a model cannot work
+offline. `bundle.py` strips it from the portable build.
+
+### What it may do
+Three functions, and the boundary is the point:
+- `openScreen` - navigates the console, and refuses screens the signed-in role cannot open
+- `proposeTransfer` - **drafts** a stock move as a card with a button. The write happens on
+  the click, never on a model turn
+- `draftMessage` - writes a reply for review. Nothing is ever sent
+
+None of them touches money. The model is occasionally wrong, and being wrong about which
+screen to open costs a click while being wrong about stock costs a count.
+
+### Cost control
+The snapshot sent each turn is deliberately small - only stock that is dead in one branch
+and sitting in another, recent orders, alterations, corporate, fittings. The whole catalogue
+would be most of the context window and most of the bill for questions that only ever
+concern what is short, what is late and what is waiting. History is capped at 12 turns, the
+function-call loop at 2 rounds, output at 700 tokens. `ai: false` in `firebase-config.js`
+switches the whole thing off and nothing is billed.
+
+**Verified** by `tools/aitest.js`: the launcher is **invisible on the storefront and visible
+only in the console**, the SDK loads and builds `models/gemini-2.5-flash` with all three
+tools registered, the panel opens with its suggestions, errors surface legibly in the log -
+and the assertion that matters, **`stockUnchangedByModel: true`**: a full model turn changed
+no stock.
+
+### Blocked on one console switch
+The Firebase AI API is not enabled on the project, so every question currently returns
+`AI/api-not-enabled`. Open **console.firebase.google.com/project/sir-henrys/genai** and click
+Get started. The error in the panel now names that exact URL rather than showing a raw code.

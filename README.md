@@ -104,6 +104,8 @@ assets/css/          site.css (global), admin.css (scoped under .ad)
 assets/js/firebase-config.js  the one file to edit for a different Firebase project
 assets/js/sync.js    Firestore sync, degrades to localStorage
 assets/js/auth.js    customer accounts (Firebase Auth), degrades to a local profile
+assets/js/ai.js      the staff assistant (Firebase AI Logic) - ESM module, network only
+assets/js/ai-ui.js   its panel, and where propose-not-commit is enforced
 assets/js/data.js    catalogue, stock model, cart, orders, persistence
 assets/js/app.js     storefront router + views
 assets/js/motion.js  Lenis, the WebGL room, scroll reveals, the anatomy camera
