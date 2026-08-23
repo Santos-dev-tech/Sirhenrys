@@ -136,27 +136,6 @@
 </a>
 
 <!-- cart drawer -->
-<!-- The assistant. Lives inside #ad so it is staff-only, and so admin.css reaches it. -->
-<button class="ai-fab" id="aiFab" type="button" aria-label="Ask the shop assistant">
-  <svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
-  <span>Ask</span></button>
-
-<aside class="ai" id="aiPanel" aria-label="Shop assistant" data-lenis-prevent hidden>
-  <div class="ai-hd">
-    <b>Shop assistant</b>
-    <span class="ai-state" id="aiState">starting</span>
-    <button class="x" id="aiClose" aria-label="Close">&times;</button>
-  </div>
-  <div class="ai-log" id="aiLog"></div>
-  <div class="ai-sugg" id="aiSugg"></div>
-  <form class="ai-ask" id="aiForm">
-    <input id="aiInput" type="text" autocomplete="off"
-           placeholder="Ask about stock, orders, alterations...">
-    <button class="btn sm" id="aiSend">Ask</button>
-  </form>
-  <p class="ai-note">It suggests; you decide. It cannot change stock, orders or payments.</p>
-</aside>
-
 <div class="scrim" id="scrim"></div>
 <aside class="drawer" id="cartDrawer" aria-label="Shopping bag">
   <div class="drawer-hd"><b>Your bag</b><button class="x" data-close aria-label="Close">&times;</button></div>
@@ -257,6 +236,26 @@
   <div class="dw-bd" id="dwBody"></div>
   <div class="dw-ft"><button class="btn" id="dwSave">Save changes</button>
     <button class="btn ghost" data-close>Close</button></div>
+</aside>
+<!-- The assistant. Lives inside #ad so it is staff-only, and so admin.css reaches it. -->
+<button class="ai-fab" id="aiFab" type="button" aria-label="Ask the shop assistant">
+  <svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+  <span>Ask</span></button>
+
+<aside class="ai" id="aiPanel" aria-label="Shop assistant" data-lenis-prevent hidden>
+  <div class="ai-hd">
+    <b>Shop assistant</b>
+    <span class="ai-state" id="aiState">starting</span>
+    <button class="x" id="aiClose" aria-label="Close">&times;</button>
+  </div>
+  <div class="ai-log" id="aiLog"></div>
+  <div class="ai-sugg" id="aiSugg"></div>
+  <form class="ai-ask" id="aiForm">
+    <input id="aiInput" type="text" autocomplete="off"
+           placeholder="Ask about stock, orders, alterations...">
+    <button class="btn sm" id="aiSend">Ask</button>
+  </form>
+  <p class="ai-note">It suggests; you decide. It cannot change stock, orders or payments.</p>
 </aside>
 </div><!-- /#ad -->
 

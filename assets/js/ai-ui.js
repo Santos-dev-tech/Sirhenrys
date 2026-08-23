@@ -12,8 +12,13 @@
 (function () {
   'use strict';
 
+  /* Every element is looked up when it is needed, never cached. The login gate replaces
+     the whole console with AD.innerHTML = ..., and signing in puts it back - so any
+     reference held across that is stale, and any handler bound to it is lost. Lazy
+     lookups plus delegated clicks survive it. */
   const $ = id => document.getElementById(id);
-  let panel, log, input, form, fab, stateEl, sugg;
+  const panelEl = () => $('aiPanel');
+  const logEl   = () => $('aiLog');
   let history = [];
   let pending = null;          // a proposal waiting for a person
 
@@ -24,14 +29,8 @@
     'What sold recently and where?'
   ];
 
-  function ready() {
-    panel = $('aiPanel'); log = $('aiLog'); input = $('aiInput');
-    form = $('aiForm'); fab = $('aiFab'); stateEl = $('aiState'); sugg = $('aiSugg');
-    if (!panel || !window.SHAI) return false;
-    return true;
-  }
-
   function say(cls, text) {
+    const log = logEl(); if (!log) return { remove() {} };
     const d = document.createElement('div');
     d.className = 'ai-msg ' + cls;
     d.textContent = text;
@@ -41,6 +40,7 @@
   }
 
   function note(text) {
+    const log = logEl(); if (!log) return;
     const d = document.createElement('div');
     d.className = 'ai-did';
     d.textContent = text;
@@ -50,6 +50,7 @@
 
   /* ---- a proposal, with the commit button belonging to the human ---- */
   function card(title, lines, actionLabel, onAct) {
+    const log = logEl(); if (!log) return;
     const d = document.createElement('div');
     d.className = 'ai-did';
     d.innerHTML = '<b>' + title + '</b><br>' + lines.map(l =>
@@ -111,7 +112,7 @@
   async function send(text) {
     if (!text.trim()) return;
     say('me', text);
-    input.value = '';
+    const input = $('aiInput'); if (input) input.value = '';
     const thinking = say('it', 'Thinking...');
 
     const r = await SHAI.ask(history, text, handlers);
@@ -125,6 +126,7 @@
   }
 
   function paintState(s) {
+    const stateEl = $('aiState');
     if (!stateEl) return;
     stateEl.classList.remove('on', 'bad');
     if (s.busy) { stateEl.textContent = 'thinking'; return; }
@@ -134,32 +136,52 @@
   }
 
   function open() {
+    const panel = panelEl(); if (!panel) return;
     panel.hidden = false;
-    if (!log.childElementCount) {
+    fillSuggestions();
+    const log = logEl();
+    if (log && !log.childElementCount) {
       const s = SHAI.status();
       if (s.error) say('err', s.error);
       else say('it', "Ask me about stock, orders, alterations or a corporate enquiry. " +
                      "I can open a screen or draft something for you - you decide whether it happens.");
     }
-    input.focus();
+    const input = $('aiInput'); if (input) input.focus();
   }
-  function close() { panel.hidden = true; }
+  function close() { const p = panelEl(); if (p) p.hidden = true; }
 
-  function boot() {
-    if (!ready()) return;
-    SHAI.onStatus(paintState);
-
+  function fillSuggestions() {
+    const sugg = $('aiSugg');
+    if (!sugg || sugg.childElementCount) return;
     SUGGESTIONS.forEach(t => {
       const b = document.createElement('button');
-      b.type = 'button'; b.textContent = t;
-      b.onclick = () => { open(); send(t); };
+      b.type = 'button'; b.textContent = t; b.dataset.aisugg = t;
       sugg.appendChild(b);
     });
+  }
 
-    fab.onclick = open;
-    $('aiClose').onclick = close;
-    form.onsubmit = e => { e.preventDefault(); send(input.value); };
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) close(); });
+  function boot() {
+    if (!window.SHAI) return;
+    SHAI.onStatus(paintState);
+    fillSuggestions();
+
+    // Delegated, so none of this breaks when the login gate rebuilds the console.
+    document.addEventListener('click', e => {
+      if (e.target.closest('#aiFab'))   { open(); return; }
+      if (e.target.closest('#aiClose')) { close(); return; }
+      const sg = e.target.closest('[data-aisugg]');
+      if (sg) { open(); send(sg.dataset.aisugg); }
+    });
+    document.addEventListener('submit', e => {
+      if (!e.target.closest('#aiForm')) return;
+      e.preventDefault();
+      const input = $('aiInput');
+      send(input ? input.value : '');
+    });
+    document.addEventListener('keydown', e => {
+      const p = panelEl();
+      if (e.key === 'Escape' && p && !p.hidden) close();
+    });
 
     // The launcher belongs to the console. .ad-showing is set by the router, so the
     // storefront can never surface a staff tool even though both share this document.

@@ -15,11 +15,22 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const out={};
 
  // the storefront must never show a staff tool
- out.storefront=await p.evaluate(()=>{
+ /* Measure a real on-screen box, not getComputedStyle().display. An earlier version
+    checked display only, and passed while the button sat inside #shop - which is hidden
+    on the admin route - so it reported a launcher nobody could see as visible. */
+ const seen=()=>p.evaluate(()=>{
    const f=document.getElementById('aiFab');
-   return {fabExists:!!f, fabVisible:f?getComputedStyle(f).display!=='none':null,
+   if(!f) return {exists:false};
+   const r=f.getBoundingClientRect();
+   const onScreen = r.width>0 && r.height>0 && r.bottom>0 && r.right>0 &&
+                    r.top<innerHeight && r.left<innerWidth &&
+                    getComputedStyle(f).visibility!=='hidden';
+   let inShop=false,n=f; while(n){ if(n.id==='shop') inShop=true; n=n.parentElement; }
+   return {exists:true, onScreen, inShop,
+           box:{x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)},
            bodyHasAdShowing:document.body.classList.contains('ad-showing')};
  });
+ out.storefront=await seen();
 
  await p.evaluate(()=>{location.hash='#/admin';}); await sleep(1200);
  await p.evaluate(async()=>{
@@ -30,16 +41,18 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
    if(pin){pin.value='1967'; ad.querySelector('#pinForm').dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));}
  });
  await sleep(1600);
- out.console=await p.evaluate(()=>{
-   const f=document.getElementById('aiFab');
-   return {fabVisible:getComputedStyle(f).display!=='none',
-           bodyHasAdShowing:document.body.classList.contains('ad-showing')};
+ out.console=await seen();
+ // and it must still work after the login gate has rebuilt the console around it
+ out.clickWorks=await p.evaluate(async()=>{
+   const wait=ms=>new Promise(r=>setTimeout(r,ms));
+   document.getElementById('aiFab').click(); await wait(400);
+   const open=!document.getElementById('aiPanel').hidden;
+   return open;
  });
 
  out.status=await p.evaluate(()=>window.SHAI?SHAI.status():null);
 
  // open it and ask something real
- await p.evaluate(()=>document.getElementById('aiFab').click()); await sleep(500);
  out.panelOpen=await p.evaluate(()=>!document.getElementById('aiPanel').hidden);
  out.suggestions=await p.evaluate(()=>document.querySelectorAll('#aiSugg button').length);
 

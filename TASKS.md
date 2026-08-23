@@ -609,3 +609,25 @@ through from `gemini-3.7-flash` (quota spent) to `gemini-3.6-flash`.
 `tools/modelprobe.js`, `tools/toolprobe.js` and `tools/rawprobe.js` are kept. The second
 isolates which *part* of a request a server objects to - model, tools, system instruction
 or generation config - which is what proved the tools schema was innocent.
+
+### 19b. "i dont see it"
+
+The launcher existed, had `display:inline-flex`, had a click handler, and was invisible.
+It had been inserted before `<div class="scrim" id="scrim">` - and there are **two** scrims
+in this document, the storefront's and the console's. The replace matched the first, so the
+whole assistant landed inside `#shop`, which the router hides on the admin route. Measured:
+`parents: ["BUTTON#aiFab.ai-fab", "DIV#shop."]`, box `0x0` at `0,0`.
+
+**The test was complicit.** `aitest.js` asserted `getComputedStyle(f).display !== 'none'`,
+which is true of an element inside a hidden ancestor. It reported a launcher nobody could
+see as visible. It now measures a real on-screen box - non-zero size, inside the viewport,
+not `visibility:hidden` - and separately asserts the button is **not** inside `#shop`.
+
+A second bug the move exposed: `renderLogin()` replaces the console with
+`AD.innerHTML = ...`, so after signing in every element is new and every directly-bound
+handler is gone. All of `ai-ui.js` now looks elements up when it needs them and delegates
+clicks from `document`, so it survives the shell being torn down and rebuilt.
+`clickWorks: true` asserts that specifically, after a sign-in.
+
+Verified: storefront `onScreen:false`, console `onScreen:true` at `x:1329 y:836 89x42`,
+`inShop:false` in both.
