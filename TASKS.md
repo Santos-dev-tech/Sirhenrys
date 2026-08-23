@@ -167,3 +167,53 @@ both found by measuring the layout rather than looking at it.
 **Verified** by `tools/anattest.js` at 1440x900: stage box == panel box, and the copy box
 clears the panel at all nine sampled scroll positions, with no console errors.
 `tools/anatshot.js` renders the section at five scroll marks, desktop and phone.
+
+
+## 11. The garment turns on its own, and the dark ground stops being a rectangle  `[x]`
+
+Reviewed the SIREN reference at 0.1-second granularity, cropped to the laptop screen. The
+pattern is unambiguous: **the centred figure rotates continuously in place, on its own** —
+green outfit 4.4-6.8s, denim 8.4-9.6s, black 14.4-16.4s — while its neighbours stand still
+as ghosts. Nobody drags anything.
+
+- [x] The product-page 360 turns by itself, roughly one revolution every 14s, and hands
+      control over the moment you touch it — resuming 2.6s after you let go
+- [x] Adjacent angles **crossfade** by a fractional position, so the 45-degree step between
+      eight stills reads as a dissolve rather than a slideshow
+- [x] The collection room turns too, on a shared clock, one revolution every 10s. The
+      fragment shader gained a second sampler (`uTex2`/`uMix`) so the dissolve happens in
+      WebGL, not by swapping a texture outright
+- [x] Off-screen spinners stop their rAF entirely (IntersectionObserver)
+- [x] `prefers-reduced-motion` suppresses the idle turn in both places; drag still works
+
+**Verified** by `tools/roomtest.js`: `spinsUntouched: true` with `railMoved: false` —
+it turns without anybody moving the rail — and `crossfades: true`. `tools/spintest.js`
+adds `idleAdvanced` and `crossfades` on the product page.
+
+### The dark ground
+It read as "just out there" because it was a hard-edged rectangle floating on the bone.
+Three measurements decided the fix:
+
+| | |
+|---|---|
+| Frame background at its very edge | luma **17** |
+| Panel colour `#11120d` | luma **17.5** |
+| Garment extent on the widest frame | x = **0.03 → 0.97** |
+
+The frame's edge was already invisible *against the panel* — half a luma step apart. The
+rectangle was the panel's own edge against the page. It cannot be feathered on all sides,
+because the sleeves reach to 3% from the frame edge, so instead it became a **column**:
+three sides run off the page and the fourth dissolves. The dissolve is fitted between two
+fixed things — the copy's right edge at x=418 and the frame's left edge at x=634 — and the
+copy column carries 13vw of right padding so no type can ever land on the ramp.
+
+**Verified**: max single-pixel luma jump across the whole dissolve is **4.7** (a hard edge
+measures 200+), and `anattest.js` reports `allStepsClearOfDissolve: true` at nine scroll
+positions. The frame mask was dropped entirely — the frames now sit wholly inside the
+column, so the feather had nothing left to hide, and losing it returned the sleeve tips
+and one per-pixel alpha composite.
+
+### Still true
+Only **one** garment has eight photographed angles. The other twelve in the room are flat
+plates and stay flat rather than fake it. Turning all of them is a credit problem, not a
+code one — see the note in `README.md`.

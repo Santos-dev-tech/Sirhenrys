@@ -1,4 +1,5 @@
-/* Confirms the 360 viewer loads every angle and rotates in both directions. */
+/* Confirms the 360 viewer loads every angle, turns on its own, crossfades between
+   adjacent angles, and still rotates in both directions when dragged. */
 const puppeteer = require('puppeteer-core');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -25,13 +26,27 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       box.dispatchEvent(new PointerEvent('pointerup',{clientX:r.left+r.width/2+dx,clientY:r.top+r.height/2,bubbles:true,pointerId:1}));
       await wait(500);
     };
+    // it should be turning without anyone touching it, and crossfading while it does
+    const idle = [], partials = [];
+    for (let i = 0; i < 12; i++) {
+      idle.push(cur());
+      partials.push(fr.filter(f => { const a = +(f.style.opacity || 0); return a > 0.02 && a < 0.98; }).length);
+      await wait(700);
+    }
+    const idleAdvanced = new Set(idle).size > 2;
+    const crossfades = partials.some(n => n === 2);
+
+    // Drag distances must not be near a whole number of turns. A full box width is
+    // N*1.35 = 10.8 frames, so 0.8 of it is 8.64 - a complete revolution plus a fraction,
+    // which lands back where it started and reads as "did not rotate".
     const start = cur();
-    await drag(r.width*0.8);   const right = cur();
-    await drag(-r.width*1.6);  const left  = cur();
+    await drag(r.width*0.30);   const right = cur();   // ~3.2 angles clockwise
+    await drag(-r.width*0.60);  const left  = cur();   // ~6.5 angles the other way
     return {
       present:true, frames:fr.length,
       loaded: fr.filter(f=>f.complete && f.naturalWidth>0).length,
       srcs: fr.map(f=>(f.currentSrc||f.src).split('/').pop()),
+      idleWalk: idle, idleAdvanced, crossfades,
       start, afterDragRight:right, afterDragLeft:left,
       rotatesRight: right!==start, rotatesLeft: left!==right,
       degLabel: (box.querySelector('[data-spin-deg]')||{}).textContent

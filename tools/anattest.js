@@ -33,6 +33,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     Motion.scrollTo(sec.offsetTop+total*(i/8),{immediate:true}); await wait(320);
     const on=document.querySelector('.anat-step.on')||document.querySelector('.anat-step');
     const t=on?R(on):null;
+    // the copy must clear the point where the dissolve starts, not just the solid column
     const overlapsPanel = t ? (t.r > res.panel.x+2) : null;
     const f=document.querySelector('.anat-f.on');
     res.steps.push({p:+(i/8).toFixed(2), copyRight:t&&t.r, panelLeft:res.panel.x, overlapsPanel, frame:f&&(f.getAttribute('src')||'').slice(-8)});
@@ -43,6 +44,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   res.introSel=h?h.className:null;
   res.intro=h?R(h):null;
   res.introOverlapsPanel=h? (R(h).r > res.panel.x+2):null;
+  res.allStepsClearOfDissolve = res.steps.every(st => st.overlapsPanel === false);
   return res;
  });
  out.errors=[...new Set(errs)];

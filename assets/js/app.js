@@ -280,12 +280,12 @@
         <div class="pdp-gal">
           ${SH.hasSpin(p.slug) ? `
             <div class="spin" data-spin tabindex="0" role="img"
-                 aria-label="${esc(p.title)}, rotatable through eight angles">
+                 aria-label="${esc(p.title)}, turning through eight photographed angles; drag or use the arrow keys to steer">
               ${SH.spinFrames(p.slug).map((src, i) => `<img class="spin-f${i === 0 ? ' on' : ''}"
                 src="${src}" alt="" decoding="async"
                 fetchpriority="${i === 0 ? 'high' : 'low'}">`).join('')}
               <div class="spin-ui">
-                <span class="spin-hint">Drag to turn</span>
+                <span class="spin-hint">Turning &mdash; drag to steer</span>
                 <span class="spin-deg" data-spin-deg>0&deg;</span>
               </div>
             </div>` : `<img src="${p.images[0]}" alt="${esc(p.title)}">`}
@@ -811,7 +811,8 @@
     if (room) {
       const slugs = JSON.parse(room.dataset.room);
       const items = slugs.map(byId).filter(Boolean)
-        .map(p => ({ src: p.images[0], slug: p.slug, title: p.title.split(' - ')[0], price: fmt(p.price) }));
+        .map(p => ({ src: p.images[0], slug: p.slug, title: p.title.split(' - ')[0], price: fmt(p.price),
+                     spin: SH.hasSpin(p.slug) ? SH.spinFrames(p.slug) : null }));
       const titleEl = room.querySelector('[data-room-title]');
       const priceEl = room.querySelector('[data-room-price]');
       const canvas = room.querySelector('.room-canvas');

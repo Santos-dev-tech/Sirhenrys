@@ -152,6 +152,8 @@ window.Motion = (() => {
   const FRAG = `
     precision highp float;
     uniform sampler2D uTex;
+    uniform sampler2D uTex2;   // the next angle of a turnaround, for the crossfade
+    uniform float uMix;        // 0 = uTex, 1 = uTex2
     uniform float uVel;
     uniform float uPlaneAspect;
     uniform float uImageAspect;
@@ -162,6 +164,12 @@ window.Motion = (() => {
     uniform float uKeyLo;      // distance where the key starts to open
     uniform float uKeyHi;      // distance where the pixel is fully opaque
     varying vec2 vUv;
+
+    // Eight photographed angles read as a slideshow if you cut between them. Mixing the
+    // two either side of a fractional position turns the 45-degree step into a dissolve.
+    vec3 plate(vec2 uv){
+      return mix(texture2D(uTex, uv).rgb, texture2D(uTex2, uv).rgb, uMix);
+    }
 
     vec2 coverUv(vec2 uv){
       vec2 s = uPlaneAspect > uImageAspect
@@ -180,9 +188,9 @@ window.Motion = (() => {
       // the garment you are looking at stays clean, only the passing ones smear.
       float shift = clamp(uVel * 0.0012, -0.0022, 0.0022) * (1.0 - uFocus * 0.75);
       vec3 c;
-      c.r = texture2D(uTex, uv + vec2(shift, 0.0)).r;
-      c.g = texture2D(uTex, uv).g;
-      c.b = texture2D(uTex, uv - vec2(shift, 0.0)).b;
+      c.r = plate(uv + vec2(shift, 0.0)).r;
+      c.g = plate(uv).g;
+      c.b = plate(uv - vec2(shift, 0.0)).b;
 
       // Chroma key against this plate's OWN sampled studio ground rather than a fixed
       // luminance. The generated backgrounds are mid-grey gradients, not white, and they
@@ -233,6 +241,8 @@ window.Motion = (() => {
     } catch (e) { return null; }   // tainted canvas (cross-origin): keep the default
   }
 
+  const RAIL_SPIN_RATE = 8 / 10;      // angles per second: a full turn every ~10s
+
   class Rail {
     constructor(canvas, items, opts = {}) {
       this.canvas = canvas;
@@ -276,10 +286,20 @@ window.Motion = (() => {
           if (k) mat.uniforms.uKey.value.set(k[0], k[1], k[2]);
         });
         tex.colorSpace = THREE.SRGBColorSpace || undefined;
+        // A garment with a photographed turnaround carries all its angles into the room,
+        // so it turns as it travels the rail instead of sliding past as a flat plate.
+        // Only garments that actually have eight plates do this; the rest stay flat
+        // rather than fake it.
+        const spinTex = (it.spin || []).map(src => {
+          const t = loader.load(src, tt => { tt.minFilter = THREE.LinearFilter; tt.generateMipmaps = false; });
+          t.colorSpace = THREE.SRGBColorSpace || undefined;
+          return t;
+        });
         const mat = new THREE.ShaderMaterial({
           vertexShader: VERT, fragmentShader: FRAG, transparent: true,
           uniforms: {
-            uTex: { value: tex }, uVel: { value: 0 }, uFocus: { value: 1 },
+            uTex: { value: tex }, uTex2: { value: tex }, uMix: { value: 0 },
+            uVel: { value: 0 }, uFocus: { value: 1 },
             uPlaneAspect: { value: planeW / planeH },
             uImageAspect: { value: 0.75 },
             uHover: { value: 0 },
@@ -291,7 +311,7 @@ window.Motion = (() => {
           depthWrite: false
         });
         const mesh = new THREE.Mesh(geo, mat);
-        mesh.userData = { index: i, item: it };
+        mesh.userData = { index: i, item: it, spinTex, spinShown: -1, baseTex: tex };
         this.scene.add(mesh);
         return mesh;
       });
@@ -355,6 +375,7 @@ window.Motion = (() => {
       // focus fade) mid-transition on slower frames, so the centred garment stayed washed out.
       const dt = this._last ? Math.min(0.05, (now - this._last) / 1000) : 0.016;
       this._last = now;
+      if (!reduced) this._spin = (this._spin || 0) + RAIL_SPIN_RATE * dt;
       const k = 1 - Math.exp(-6.5 * dt);
       this.current += (this.target - this.current) * k;
       this.vel = this.target - this.current;
@@ -388,6 +409,20 @@ window.Motion = (() => {
         const h = m === hovered ? 1 : 0;
         u.uHover.value += (h - u.uHover.value) * kf;
 
+        // The reference film has the garment turning in place on its own, continuously -
+        // nobody drags it. So the angle comes off a shared clock, not off the rail
+        // position, and adjacent angles are crossfaded by the fraction between them.
+        const st = m.userData.spinTex;
+        if (st && st.length) {
+          const NA = st.length;
+          const wrapped = ((this._spin % NA) + NA) % NA;
+          const i0 = Math.floor(wrapped), i1 = (i0 + 1) % NA;
+          u.uTex.value = st[i0];
+          u.uTex2.value = st[i1];
+          u.uMix.value = wrapped - i0;
+          m.userData.spinShown = (wrapped - i0) < 0.5 ? i0 : i1;
+        }
+
         const s = (0.82 + focus * 0.18) * (1 + u.uHover.value * 0.04);
         m.scale.set(s, s, 1);
         m.renderOrder = Math.round(1000 - d * 10);          // near draws over far
@@ -410,7 +445,14 @@ window.Motion = (() => {
       cancelAnimationFrame(this._raf);
       removeEventListener('resize', this._resize);
       this.canvas.removeEventListener('wheel', this._onWheel);
-      this.meshes.forEach(m => { m.geometry.dispose(); m.material.uniforms.uTex.value.dispose(); m.material.dispose(); });
+      this.meshes.forEach(m => {
+        m.geometry.dispose();
+        // uTex may be pointing at any of the turnaround angles, so dispose by handle
+        if (m.userData.baseTex) m.userData.baseTex.dispose();
+        (m.userData.spinTex || []).forEach(t => t.dispose());
+        if (!m.userData.baseTex) m.material.uniforms.uTex.value.dispose();
+        m.material.dispose();
+      });
       this.renderer.dispose();
     }
   }
@@ -515,10 +557,17 @@ window.Motion = (() => {
   }
 
   /* ---------------------------------------------------------- 360 spinner
-     Drag (or arrow-key) to rotate a garment through its eight photographed angles.
-     Same frame-swap engine as the dressing sequence, which is already proven to run
-     forward and reverse, so nothing here depends on video seeking. */
+     Eight photographed angles, turning on their own. Two things make eight stills read
+     as rotation rather than as a slideshow: the position is a float, and adjacent angles
+     are crossfaded by its fraction, so the step between 45-degree plates becomes a
+     dissolve. It idles at roughly one turn every fourteen seconds - slow enough to read
+     as display, not as animation - and hands control over the moment you touch it,
+     resuming a few seconds after you let go.
+     Same frame-swap engine as the dressing sequence, so nothing depends on video seeking. */
   let spinners = [];
+  const SPIN_IDLE_RATE = 0.56;      // frames per second: 8 frames -> a turn every ~14.3s
+  const SPIN_RESUME_MS = 2600;      // how long a drag suppresses the idle turn
+
   function mountSpinners(root = document) {
     unmountSpinners();
     root.querySelectorAll('[data-spin]').forEach(box => {
@@ -526,28 +575,48 @@ window.Motion = (() => {
       if (frames.length < 2) return;
       const N = frames.length;
       const label = box.querySelector('[data-spin-deg]');
-      let idx = 0, target = 0, raf = null, dragging = false, startX = 0, startT = 0, moved = 0;
+      let pos = 0, target = 0, raf = null, last = 0;
+      let dragging = false, startX = 0, startT = 0, moved = 0;
+      let idleAt = 0, visible = true, shown = -1;
 
       frames.forEach(f => { if (f.decode) f.decode().catch(() => {}); });
 
-      const show = (i) => {
-        i = ((i % N) + N) % N;
-        if (i === idx) return;
-        frames[idx].classList.remove('on');
-        frames[i].classList.add('on');
-        idx = i;
-        if (label) label.textContent = Math.round(i * (360 / N)) + '\u00B0';
+      // paint a fractional position by crossfading the two angles either side of it
+      const render = () => {
+        const wrapped = ((pos % N) + N) % N;
+        const i0 = Math.floor(wrapped), frac = wrapped - i0;
+        const i1 = (i0 + 1) % N;
+        for (let i = 0; i < N; i++) {
+          const a = i === i0 ? 1 - frac : (i === i1 ? frac : 0);
+          if (frames[i]._a !== a) { frames[i].style.opacity = a; frames[i]._a = a; }
+        }
+        // .on still marks the nearest angle, which is what the harness reads
+        const near = frac < 0.5 ? i0 : i1;
+        if (near !== shown) {
+          if (shown >= 0) frames[shown].classList.remove('on');
+          frames[near].classList.add('on');
+          shown = near;
+          if (label) label.textContent = Math.round(near * (360 / N)) + '\u00B0';
+        }
       };
 
-      const loop = () => {
-        // ease toward the dragged position so a flick glides instead of snapping
-        const d = target - idx;
-        if (Math.abs(d) > 0.01) {
-          show(Math.round(idx + d * 0.25));
-          raf = requestAnimationFrame(loop);
-        } else { raf = null; }
+      const loop = (now) => {
+        const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
+        last = now;
+        if (!dragging && !reduced && now > idleAt) target += SPIN_IDLE_RATE * dt;
+        // ease toward the target so a flick glides instead of snapping
+        pos += (target - pos) * (1 - Math.exp(-9 * dt));
+        render();
+        raf = visible ? requestAnimationFrame(loop) : (raf = null);
       };
-      const settle = () => { if (!raf) raf = requestAnimationFrame(loop); };
+      const run = () => { if (!raf && visible) { last = 0; raf = requestAnimationFrame(loop); } };
+
+      // a turntable nobody is looking at is pure wasted battery
+      const io = 'IntersectionObserver' in window && new IntersectionObserver(es => {
+        visible = es[0].isIntersecting;
+        if (visible) run(); else if (raf) { cancelAnimationFrame(raf); raf = null; }
+      }, { rootMargin: '120px' });
+      if (io) io.observe(box); else visible = true;
 
       const down = e => {
         dragging = true; moved = 0;
@@ -555,6 +624,7 @@ window.Motion = (() => {
         startT = target;
         box.classList.add('grabbing');
         if (e.pointerId != null && box.setPointerCapture) box.setPointerCapture(e.pointerId);
+        run();
       };
       const move = e => {
         if (!dragging) return;
@@ -563,10 +633,16 @@ window.Motion = (() => {
         moved = Math.max(moved, Math.abs(dx));
         // a full drag across the box turns the garment right round
         target = startT + (dx / box.clientWidth) * N * 1.35;
-        settle();
         if (e.cancelable) e.preventDefault();
       };
-      const up = () => { dragging = false; box.classList.remove('grabbing'); box.classList.add('spun'); };
+      const up = () => {
+        if (!dragging) return;
+        dragging = false;
+        box.classList.remove('grabbing');
+        if (moved > 6) box.classList.add('spun');
+        idleAt = performance.now() + SPIN_RESUME_MS;
+        run();
+      };
 
       box.addEventListener('pointerdown', down);
       box.addEventListener('pointermove', move);
@@ -579,12 +655,18 @@ window.Motion = (() => {
       // keyboard, so it is not mouse-only
       box.tabIndex = 0;
       box.addEventListener('keydown', e => {
-        if (e.key === 'ArrowRight') { target += 1; settle(); box.classList.add('spun'); e.preventDefault(); }
-        if (e.key === 'ArrowLeft')  { target -= 1; settle(); box.classList.add('spun'); e.preventDefault(); }
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        target += e.key === 'ArrowRight' ? 1 : -1;
+        idleAt = performance.now() + SPIN_RESUME_MS;
+        box.classList.add('spun');
+        run(); e.preventDefault();
       });
+
+      render(); run();
 
       spinners.push({ box, destroy() {
         if (raf) cancelAnimationFrame(raf);
+        if (io) io.disconnect();
         box.removeEventListener('pointerdown', down);
         box.removeEventListener('pointermove', move);
         box.removeEventListener('pointerup', up);
@@ -625,7 +707,8 @@ window.Motion = (() => {
     refresh();
   }
 
-  return { boot, refresh, mountRail, unmountRail, mountAnatomy, unmountAnatomy,
+  return { boot, refresh, mountRail, unmountRail, rail: () => rail,
+           mountAnatomy, unmountAnatomy,
            mountSpinners, unmountSpinners,
            transition, scrollTo, stopScroll, startScroll, reduced };
 })();

@@ -407,15 +407,27 @@ p{margin:0 0 1em}
    backdrop also dissolves the garment. Instead the section goes light and the garment
    keeps its own dark panel, which reads as a lit stage rather than a pasted rectangle. */
 .anat{background:var(--bone);color:var(--ink);position:relative}
-/* the panel covers ONLY the stage column - an inset shorthand ending in 0 spanned the
-   whole section and buried the copy */
-.anat-stage-panel{position:absolute;top:6vh;bottom:8vh;right:0;left:40%;background:#11120d;
-  box-shadow:0 30px 90px -40px rgba(17,18,13,.5);z-index:0}
+/* The garment's ground used to be a hard-edged rectangle floating on the bone, which read
+   as a pasted-on box. It cannot be keyed away - measured, the suit's luma (31, darkest
+   decile 19) overlaps the backdrop's (17), so any per-pixel threshold that removes the
+   background also dissolves the jacket. And it cannot simply be feathered on all sides,
+   because the outstretched sleeves reach to within 3% of the frame edge.
+   So it becomes a column instead: three sides run off the page, and the only inner edge
+   dissolves into the bone. There is no rectangle left to notice.
+   The dissolve has to fit in the gap between two fixed things, on a 1440 viewport:
+   the copy's right edge at x=419, and the frame's left edge at x=634. It starts at 29%
+   (x=417) so no text ever sits on the ramp, and is fully resolved to solid by 20% of the
+   column's width (x=622), twelve pixels clear of the frame - so the fade only ever eats
+   backdrop, never type and never garment. */
+.anat-stage-panel{position:absolute;top:0;bottom:0;right:0;left:29%;z-index:0;
+  background:linear-gradient(90deg,
+    rgba(17,18,13,0) 0%, rgba(17,18,13,.30) 9%, rgba(17,18,13,.88) 17%,
+    #11120d 20%, #11120d 100%)}
 .anat-track{position:relative}
 .anat-sticky{position:sticky;top:0;height:100vh;overflow:hidden;isolation:isolate;
   display:grid;grid-template-columns:minmax(0,42%) minmax(0,58%);align-items:center}
 /* stage is the right-hand column, inset so the garment never touches an edge */
-.anat-stage{position:absolute;top:6vh;bottom:8vh;right:0;left:40%;z-index:1;
+.anat-stage{position:absolute;top:6vh;bottom:8vh;right:0;left:44%;z-index:1;
   padding:2vh 1.5vw 3vh;overflow:hidden}
 /* The camera zoom used to scale .anat-stage itself, so at 1.2x the frames grew past the
    dark panel and their own pale letterbox showed as a grey rectangle on the bone page.
@@ -428,19 +440,21 @@ p{margin:0 0 1em}
    fewer upscaled pixels per screen pixel, so the 480p-origin frames read sharper. */
 .anat-f{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
   object-position:center 46%;opacity:0;
-  /* The feather existed to stop the frame reading as a pasted rectangle on the page.
-     Now that .anat-stage clips to the panel and the panel colour is sampled from the
-     frames themselves, it only has to soften the top and bottom - so the horizontal
-     radius is generous. At 78% it was cutting the sleeve tips off on a phone, where the
-     frame spans the full stage width. */
-  -webkit-mask-image:radial-gradient(ellipse 124% 94% at 50% 48%,#000 74%,transparent 100%);
-          mask-image:radial-gradient(ellipse 124% 94% at 50% 48%,#000 74%,transparent 100%)}
+  /* No mask. The frames sit wholly inside the dark column now, and their own background
+     measures luma 17 against the column's 17.5 - half a step apart, which is invisible.
+     Dropping it returns the sleeve tips in full and skips a per-pixel alpha composite,
+     so the 480p-origin frames render a shade crisper. */
+  }
 .anat-f.on{opacity:1}
 .anat-stage::after{content:'';position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse at 50% 46%,transparent 62%,rgba(17,18,13,.5) 98%)}
 
+/* The right padding is what guarantees no type ever lands on the dissolve: the column is
+   42% of the viewport, the dissolve starts at 29%, so 13vw of padding retires the copy
+   just short of it at any width. Capping the column rather than each step means the
+   opening title cannot escape it either. */
 .anat-copy{position:relative;z-index:3;height:100%;grid-column:1;
-  padding-left:var(--pad);padding-right:2vw;display:grid;align-items:center}
+  padding-left:var(--pad);padding-right:clamp(24px,13vw,200px);display:grid;align-items:center}
 .anat-step{grid-area:1/1;max-width:42ch;opacity:0;pointer-events:none;
   transform:translateY(18px);
   transition:opacity .7s ease,transform 1s cubic-bezier(.16,1,.3,1)}
@@ -468,7 +482,10 @@ p{margin:0 0 1em}
   /* the frames are absolutely positioned, so the stage has no intrinsic height and
      collapsed to 34px on a phone. It needs an explicit one. */
   .anat-stage{position:relative;inset:auto;width:100%;height:52vh;grid-row:1;padding:2vh 4vw}
-  .anat-stage-panel{top:0;bottom:auto;left:0;right:0;height:52vh}
+  /* on a phone the column becomes a full-width band; its only edge is the bottom one */
+  .anat-stage-panel{top:0;bottom:auto;left:0;right:0;height:56vh;
+    background:linear-gradient(180deg,#11120d 0%,#11120d 80%,rgba(17,18,13,.55) 92%,
+      rgba(17,18,13,0) 100%)}
   .anat-copy{grid-row:2;grid-column:1;padding:0 var(--pad) 12vh;align-items:start}
   .anat-step{max-width:none;transform:translateY(14px)}
   .anat-step h3{font-size:clamp(26px,7.4vw,40px)}
