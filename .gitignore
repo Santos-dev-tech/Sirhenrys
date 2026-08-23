@@ -18,3 +18,10 @@ _standalone-test.html
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Firebase Admin credentials. A service account key is a root credential for the
+# whole project - it bypasses firestore.rules entirely. Never commit one.
+serviceAccount*.json
+*-firebase-adminsdk-*.json
+firebase-debug.log
+.firebase/

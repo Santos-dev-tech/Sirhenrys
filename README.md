@@ -99,6 +99,7 @@ These are the parts worth demoing, because the current site can't do them:
 index.html           the whole app: storefront shell + staff console shell
 admin.html           a redirect into index.html#/admin, for old bookmarks
 firestore.rules      security rules - READ THE HEADER BEFORE GOING LIVE
+tools/set-staff-claims.js     grants real staff accounts their Firestore claim
 assets/css/          site.css (global), admin.css (scoped under .ad)
 assets/js/firebase-config.js  the one file to edit for a different Firebase project
 assets/js/sync.js    Firestore sync, degrades to localStorage
