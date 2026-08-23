@@ -274,3 +274,67 @@ Anonymous sign-in is **not enabled** on the Firebase project, so auth returns
 `auth/admin-restricted-operation` and sync stays off — the app is running on `localStorage`.
 Firebase console → Authentication → Sign-in method → Anonymous → Enable. Nothing in the code
 changes; sync comes up on the next load.
+
+
+## 13. 4K pro, and what the research bought  `[x]`
+
+Ten credits on a fresh account (`bintiinurii@gmail.com`). Spent as instructed: 4K pro first,
+then research before touching the rest.
+
+### 4K pro on the dressing clip
+The 480p original is gone — not on disk, no URL logged, and it belonged to the account we
+signed out of. So pro ran over the standard upscale, which compounds. Worth saying plainly
+before the numbers, because it means this is a restoration pass, not a clean pro-from-source.
+
+It worked anyway. Laplacian variance, normalised to a common 1920px width so frame size
+cannot flatter the result:
+
+| | standard | pro | change |
+|---|---|---|---|
+| video, mean of 9 frames | 40.6 | 90.8 | **+124%** |
+| **delivered frames**, as the browser loads them | 33.4 | 99.2 | **+197%** |
+
+Checked at 1:1 pixels before trusting the number, because Laplacian variance rewards
+sharpening halos as readily as detail: the lapel weave is now texture where it was smooth
+plastic, the buttonhole resolves as stitching, the tie knot has folds rather than a smear.
+No ringing at the edges. All 97 frames re-extracted at 1920x1101 through a staging
+directory — overwriting in place and failing halfway would leave the sequence half-old.
+
+### What the research found
+Probed every image model's price for free before spending anything:
+
+| model | cost | free plan |
+|---|---|---|
+| `kling_omni_image` | 0.5 | **gated** |
+| `nano_banana`, `seedream_v4_5`, `seedream_v5_lite` | 1 | **gated** |
+| `nano_banana_flash` (Nano Banana 2) | 1.5 | **allowed** |
+| `nano_banana_pro` | 2 | allowed |
+| `gpt_image_2` | 7 | — |
+
+Two things worth keeping:
+- **The free plan gates the cheap models, not the expensive one.** The 0.5 and 1-credit
+  tiers all refuse with `job_minimum_basic_plan_required`. A failed create costs nothing,
+  so mapping this was free.
+- **Nano Banana Pro is not the only model that can reorient a subject.** Task 8 concluded it
+  was. Nano Banana 2 does it too, at 1.5 instead of 2 — a true side profile holding the man,
+  the suit, the studio and the shadow direction. It defaults to 1:1 at 1k, which is what
+  makes it look worse than it is; `--aspect-ratio 3:4` fixes that.
+
+### A second garment that turns  `[x]`
+- [x] `charcoal-db` now has a four-position turnaround (0/90/180/270) at 896x1200
+- [x] Angle sets are **per garment** now (`SPIN_SETS`), not one global array — carlo-navy has
+      eight, charcoal-db has four, and the viewer derives its degree labels from the length
+- [x] Normalised by downscaling the 1536x2048 plate to match the generated 896x1200, rather
+      than upscaling three images and inventing pixels
+
+**Verified** by `tools/roomtest.js`: `withTurnaround: [carlo-navy, charcoal-db]`,
+`anglesEach: [8, 4]`, both `spinsUntouched` and `crossfades`.
+
+`spintest.js` was counting distinct angle indices to decide whether the idle turn was
+running, which fails under headless swiftshader — the dt clamp throttles the clock, so
+something plainly moving reports as still. It now reconstructs the fractional position from
+the two visible opacities and sums the advance, which is frame-rate independent.
+
+### Credits
+0.77 left. Eleven of thirteen room garments are still flat plates. At 1.5 a frame that is
+~16 credits for one more eight-angle garment, or ~6 for another four-angle one.

@@ -26,14 +26,38 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       box.dispatchEvent(new PointerEvent('pointerup',{clientX:r.left+r.width/2+dx,clientY:r.top+r.height/2,bubbles:true,pointerId:1}));
       await wait(500);
     };
-    // it should be turning without anyone touching it, and crossfading while it does
+    // It should be turning without anyone touching it, and crossfading while it does.
+    // Measured as total angular advance rather than a count of distinct angle indices:
+    // headless swiftshader runs slowly enough that the dt clamp throttles the idle clock,
+    // so counting indices under-reports something that is plainly moving. Reconstructing
+    // the fractional position from the two visible opacities does not care about frame rate.
+    const posNow = () => {
+      const on = fr.map((f, i) => [i, +(f.style.opacity || 0)]).filter(x => x[1] > 0.001)
+                   .sort((a, b) => b[1] - a[1]);
+      if (!on.length) return null;
+      if (on.length === 1) return on[0][0];
+      const [a, b] = on;
+      // the pair is adjacent (mod N); the fraction is how far it has crossed to the later one
+      const later = ((b[0] - a[0] + fr.length) % fr.length) === 1 ? b[0] : a[0];
+      const earlier = later === b[0] ? a[0] : b[0];
+      const frac = fr[later].style.opacity ? +fr[later].style.opacity : 0;
+      return earlier + frac;
+    };
     const idle = [], partials = [];
     for (let i = 0; i < 12; i++) {
-      idle.push(cur());
+      idle.push(posNow());
       partials.push(fr.filter(f => { const a = +(f.style.opacity || 0); return a > 0.02 && a < 0.98; }).length);
       await wait(700);
     }
-    const idleAdvanced = new Set(idle).size > 2;
+    let advance = 0;
+    for (let i = 1; i < idle.length; i++) {
+      if (idle[i] == null || idle[i-1] == null) continue;
+      let d = idle[i] - idle[i-1];
+      if (d < -0.5) d += fr.length;          // wrapped past the last angle
+      if (d > 0) advance += d;
+    }
+    const anglesAdvanced = +advance.toFixed(2);
+    const idleAdvanced = advance > 0.5;
     const crossfades = partials.some(n => n === 2);
 
     // Drag distances must not be near a whole number of turns. A full box width is
@@ -46,7 +70,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       present:true, frames:fr.length,
       loaded: fr.filter(f=>f.complete && f.naturalWidth>0).length,
       srcs: fr.map(f=>(f.currentSrc||f.src).split('/').pop()),
-      idleWalk: idle, idleAdvanced, crossfades,
+      idleWalk: idle.map(v => v == null ? null : +v.toFixed(2)), anglesAdvanced, idleAdvanced, crossfades,
       start, afterDragRight:right, afterDragLeft:left,
       rotatesRight: right!==start, rotatesLeft: left!==right,
       degLabel: (box.querySelector('[data-spin-deg]')||{}).textContent

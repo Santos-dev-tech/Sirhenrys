@@ -154,10 +154,19 @@ const SH = (() => {
      else falls back to the flat gallery, so the page never shows an empty spinner. */
   // Eight photographed positions, 45 degrees apart. The viewer interpolates nothing -
   // every frame shown is a real generation, which is why the count is what it is.
-  const SPIN_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
-  const SPINNABLE = ['carlo-navy'];
-  const hasSpin = slug => SPINNABLE.includes(slug);
-  const spinFrames = slug => SPIN_ANGLES.map(a =>
+  /* Angles are per garment, not global. carlo-navy has the full eight; charcoal-db has
+     four, because a turnaround costs real credits per angle and four still reads as a
+     turn once adjacent frames are crossfaded. The viewer derives its degree labels from
+     the length of the set, so any count works - what it cannot survive is a garment
+     claiming angles whose files do not exist. */
+  const SPIN_SETS = {
+    'carlo-navy':  [0, 45, 90, 135, 180, 225, 270, 315],
+    'charcoal-db': [0, 90, 180, 270]
+  };
+  const SPIN_ANGLES = SPIN_SETS['carlo-navy'];          // kept for anything still asking
+  const hasSpin = slug => !!SPIN_SETS[slug];
+  const spinAngles = slug => SPIN_SETS[slug] || [];
+  const spinFrames = slug => spinAngles(slug).map(a =>
     'assets/img/spin-' + slug + '-' + String(a).padStart(3, '0') + '.jpg');
 
   const byId = s => PRODUCTS.find(p => p.slug === s);
@@ -472,7 +481,7 @@ const SH = (() => {
            cart, wishlist, placeOrder, bookAppointment, addCommission, markRecent,
            addGroup, groupDiscount, search,
            skuFor, barcodeFor, checkEan13, lookupCode,
-           SPIN_ANGLES, hasSpin, spinFrames,
+           SPIN_ANGLES, SPIN_SETS, spinAngles, hasSpin, spinFrames,
            stockAt, adjustStock, branchTotal, allStock,
            mpesaStkPush, mpesaResolve, recordSale,
            addAlteration, advanceAlteration, addCorporate, corporateTier,

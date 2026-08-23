@@ -280,7 +280,7 @@
         <div class="pdp-gal">
           ${SH.hasSpin(p.slug) ? `
             <div class="spin" data-spin tabindex="0" role="img"
-                 aria-label="${esc(p.title)}, turning through eight photographed angles; drag or use the arrow keys to steer">
+                 aria-label="${esc(p.title)}, turning through ${SH.spinAngles(p.slug).length} photographed angles; drag or use the arrow keys to steer">
               ${SH.spinFrames(p.slug).map((src, i) => `<img class="spin-f${i === 0 ? ' on' : ''}"
                 src="${src}" alt="" decoding="async"
                 fetchpriority="${i === 0 ? 'high' : 'low'}">`).join('')}
