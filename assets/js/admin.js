@@ -599,6 +599,10 @@
               `<button class="chip ${c.status === st ? 'on' : ''}" data-corp="${esc(c.id)}" data-corpst="${st}">${st}</button>`).join('')}
           </div></div>
           <div class="panel-bd">
+            ${c.orderId ? `<div class="notice on" style="margin-bottom:16px">
+              Won &middot; became order <a href="#/admin/orders" style="border-bottom:1px solid currentColor"
+              >${esc(c.orderId)}</a>${(() => { const o = state.orders.find(x => x.id === c.orderId);
+                return o ? ' &middot; ' + fmt(o.total) + ' &middot; ' + esc(o.status) : ''; })()}</div>` : ''}
             <div class="f3">
               <div><label class="lbl">Headcount</label><div class="big">${esc(c.headcount)}</div></div>
               <div><label class="lbl">Garment</label><div class="big" style="font-size:16px">${esc(c.garment)}</div></div>
@@ -811,7 +815,18 @@
     // corporate pipeline
     view.querySelectorAll('[data-corp]').forEach(b => b.onclick = () => {
       const c = state.corporate.find(x => x.id === b.dataset.corp);
-      if (c) { c.status = b.dataset.corpst; SH.emit(); render(); toast(c.company + ': ' + c.status); }
+      if (!c) return;
+      const to = b.dataset.corpst;
+      // Won is the only status that does something. It turns the enquiry into a real
+      // order - see SH.winCorporate, which is idempotent, so clicking Won twice does not
+      // bill the client twice.
+      if (to === 'Won') {
+        const o = SH.winCorporate(c.id);
+        render();
+        toast(o ? c.company + ' won — order ' + o.id + ' for ' + fmt(o.total) : 'Could not create the order');
+        return;
+      }
+      c.status = to; SH.emit(); render(); toast(c.company + ': ' + c.status);
     });
 
     // printable barcode tags for the whole catalogue

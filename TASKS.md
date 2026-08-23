@@ -671,3 +671,37 @@ a timeout now reports itself in 25s instead of hanging.
 
 **Quota note:** debugging this spent a large share of today's free-tier requests. If the
 panel says the allowance is used up, it resets daily - or add billing in Google Cloud.
+
+
+## 20. Won becomes a real order  `[x]`
+
+Marking a corporate enquiry **Won** used to set a label and nothing else. It now creates
+the order.
+
+### The research was domain, not API
+The obvious implementation - 120 order lines - is wrong, and the catalogue says why.
+**Nobody knows 120 people's sizes when the contract is agreed.** Measuring is the next
+step, and that is the entire reason an enquiry pipeline exists ahead of an order. So Won
+creates **one** order carrying the headcount as its quantity and a size of
+`To be measured`, which then moves through the workshop stages that already exist rather
+than needing a parallel system.
+
+Two smaller decisions from the same reading:
+- The five garment options on the enquiry form are prose, not products, so each maps to
+  the catalogue item that prices it. Blazer-and-trousers prices on the blazer, because
+  that is the piece being tailored; a mixed programme prices as a two-piece, which is what
+  such a programme mostly is.
+- Payment is **Invoice**, not M-Pesa. A bank does not pay for 120 suits by STK push.
+
+- [x] `SH.winCorporate(id)` creates the order, links it both ways (`c.orderId`,
+      `order.corporate`) and stamps the discount and deadline into the workshop note
+- [x] **Idempotent.** Clicking Won twice must not bill a client twice, so a second click
+      returns the existing order
+- [x] Order ids are checked against the list rather than derived from its length, which
+      would collide once any order had been removed
+- [x] The enquiry panel shows the order it became, its total and its current status
+
+**Verified** by `tools/corptest.js` against the seeded Sidian Bank enquiry: 120 two-piece
+suits become order `SH-10245` at **KSh 3,595,560** - `priceCorrect: true`, matching
+120 x 39,950 less the 25% tier the customer was shown on the storefront - `idempotent: true`
+across a second click, and `visibleInOrders: true`.

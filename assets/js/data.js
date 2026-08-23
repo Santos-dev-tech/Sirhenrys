@@ -468,6 +468,59 @@ const SH = (() => {
     }[stage] || stage;
   }
 
+  /* The five garment options on the enquiry form are prose, not products, so each maps
+     to the catalogue item that prices it. Blazer-and-trousers is priced on the blazer
+     because that is the piece being tailored; a mixed programme is priced as a
+     two-piece, which is what such a programme is mostly made of. */
+  const CORP_GARMENTS = {
+    'Two-piece suit':          'navy-pinstripe',
+    'Three-piece suit':        'carlo-navy',
+    'Blazer and trousers':     'navy-blazer',
+    'Shirts only':             'shirt-white-oxford',
+    'Mixed uniform programme': 'navy-pinstripe'
+  };
+
+  /* Marking an enquiry Won turns it into a real order.
+
+     ONE order, not one per head. Nobody knows 120 people's sizes at the point a contract
+     is agreed - measuring is the next step, which is the whole reason an enquiry pipeline
+     exists ahead of an order. So the order carries the headcount as its quantity and a
+     size of "To be measured", and moves through the workshop stages that already exist.
+
+     Idempotent: winning an enquiry twice must not bill the client twice. */
+  function winCorporate(id) {
+    const c = state.corporate.find(x => x.id === id);
+    if (!c) return null;
+    if (c.orderId) return state.orders.find(o => o.id === c.orderId) || null;
+
+    const slug = CORP_GARMENTS[c.garment] || 'navy-pinstripe';
+    const p = byId(slug);
+    const qty = Math.max(1, +c.headcount || 1);
+    const disc = corporateTier(qty);
+    const unit = Math.round(p.price * (1 - disc));
+
+    // never reuse an id, however the orders list has been edited
+    let n = 10242 + state.orders.length;
+    while (state.orders.some(o => o.id === 'SH-' + n)) n++;
+
+    const order = {
+      id: 'SH-' + n, date: Date.now(),
+      customer: { name: c.company, email: c.email, phone: c.phone, contact: c.contact },
+      items: [{ slug, size: 'To be measured', qty, price: unit }],
+      total: unit * qty,
+      payment: 'Invoice',                 // a bank does not pay 120 suits by M-Pesa
+      branch: 'cbd', status: 'Confirmed',
+      corporate: c.id,
+      alterations: qty + ' to measure' + (c.deadline ? ', for ' + c.deadline : '') +
+                   (disc ? ' (' + Math.round(disc * 100) + '% volume discount applied)' : '')
+    };
+    state.orders.unshift(order);
+    c.status = 'Won';
+    c.orderId = order.id;
+    emit();
+    return order;
+  }
+
   function addCorporate(c) {
     state.corporate.unshift({ id: 'CORP-' + (701 + state.corporate.length), date: Date.now(), status: 'New', ...c });
     emit();
@@ -492,6 +545,7 @@ const SH = (() => {
            stockAt, adjustStock, branchTotal, allStock,
            mpesaStkPush, mpesaResolve, recordSale,
            addAlteration, advanceAlteration, addCorporate, corporateTier,
+           CORP_GARMENTS, winCorporate,
            // live figures replace the static baseline everywhere
            stockTotal: (stock, size) => { const p = PRODUCTS.find(x => x.stock === stock);
              return p ? branchTotal(p, size) : total(stock, size); },
