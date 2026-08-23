@@ -74,23 +74,23 @@
      Five layers laid onto one figure as you scroll. Plate scale is normalised
      per layer because the generated frames are not identically cropped. */
   const ANAT = [
-    { at: 0.00, side: 'centre', cam: [50, 52, 1.00], eyebrow: "Sir Henry's &middot; Nairobi &middot; Since 1967",
+    { at: 0.00, side: 'centre', cam: [50, 50, 1.00], eyebrow: "Sir Henry's &middot; Nairobi &middot; Since 1967",
       h: 'The Anatomy<br>of <em>a Suit</em>',
       p: 'Nineteen measurements, taken by hand on Kimathi Street. Watch one become a suit.',
       cap: 'Scroll to begin' },
-    { at: 0.20, side: 'right',  cam: [50, 34, 1.34], eyebrow: 'The Foundation',
+    { at: 0.20, side: 'right',  cam: [50, 38, 1.16], eyebrow: 'The Foundation',
       h: 'A shirt of <em>pure cotton</em>',
       p: 'Two-ply Egyptian poplin, single-needle seams and a collar cut with enough body to hold its shape under a jacket all day.',
       cap: 'Cloth: 140/2 Egyptian cotton' },
-    { at: 0.39, side: 'left',   cam: [50, 56, 1.30],  eyebrow: 'The Waistcoat',
+    { at: 0.39, side: 'left',   cam: [50, 54, 1.14],  eyebrow: 'The Waistcoat',
       h: 'Structure, <em>held close</em>',
       p: 'The waistcoat draws the line of the body inward. Five buttons, a silk-backed rear, and a hem cut on the bias so the front falls true.',
       cap: 'Silk: mulberry, woven in Como' },
-    { at: 0.63, side: 'right',  cam: [33, 50, 1.44], eyebrow: 'The Canvas',
+    { at: 0.63, side: 'right',  cam: [44, 50, 1.20], eyebrow: 'The Canvas',
       h: 'Built on <em>full canvas</em>',
       p: 'A hand-padded horsehair canvas floats between cloth and lining. It is the reason a Sir Henry’s jacket takes the shape of the man wearing it.',
       cap: 'Construction: hand-padded full canvas' },
-    { at: 0.80, side: 'left',   cam: [50, 50, 1.00],  eyebrow: 'The Cut',
+    { at: 0.80, side: 'left',   cam: [50, 50, 1.02],  eyebrow: 'The Cut',
       h: 'The complete <em>silhouette</em>',
       p: 'Four weeks from chalk to hanger. One fitting, one bolt of cloth, and a suit that belongs to nobody else.',
       cap: 'Cloth: Super 150s merino, 240g' }
@@ -102,6 +102,7 @@
   const anatomyHTML = () => `
     <section class="anat" id="anatomy" style="height:${ANAT.length * 100}vh">
       <div class="anat-sticky">
+        <div class="anat-stage-panel"></div>
         <div class="anat-stage" data-frames="97">
           ${Array.from({length: 97}, (_, i) =>
             `<img class="anat-f${i === 0 ? ' on' : ''}" src="assets/seq/d${String(i).padStart(3,'0')}.jpg"

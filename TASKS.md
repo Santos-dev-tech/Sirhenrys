@@ -89,7 +89,7 @@ The float button is a placeholder; WhatsApp is Kenya's default channel.
 ## 8. 360 turnaround  `[x]`
 Drag a garment to see it from every side. Asked for repeatedly; finally reachable.
 
-- [x] Four photographed positions: front, left profile, back, right profile
+- [x] Eight photographed positions, 45 degrees apart
 - [x] Drag or arrow-keys, eased so a flick glides rather than snaps
 - [x] Degree readout, and a hint that stops animating once you have used it
 - [x] Products without a turnaround fall back to the flat image
@@ -115,3 +115,27 @@ Two lessons worth keeping:
   as "no magazine" once drew magazines.
 - Measure the claim, do not eyeball it. Shoulder width as a fraction of frame width
   distinguishes a real profile (0.62) from a front view dressed up as one (1.07).
+
+
+## 9. Anatomy section: readable layout, light ground, phone  `[x]`
+
+The garment filled the screen, so the copy sat on top of it and could not be read while
+scrolling, and the 480p-origin frames were stretched across the full viewport.
+
+- [x] Garment moved into its own column; copy sits in a fixed column beside it
+- [x] A smaller display area means fewer upscaled pixels per screen pixel, so the frames read sharper
+- [x] Light section with the garment on a dark stage panel
+- [x] Frame edges feathered and the section colour sampled from the frames (#11120d) so no rectangle shows
+- [x] Phone: stage and copy stack, stage given an explicit height
+- [x] Every tappable control at least 40px on coarse pointers
+
+### Why the frames are not keyed onto white
+Measured before attempting it: background luma 17, suit luma 31 with its darkest decile at
+19. They overlap, so any threshold that removes the backdrop also dissolves the garment -
+tested at 26, 38 and 52, all of which left a ghost with floating sleeves. The dark stage
+panel achieves a light section without destroying the subject.
+
+### Phone bugs found by measuring
+- The stage collapsed to **34px tall**: the frames are absolutely positioned, so the
+  container had no intrinsic height. Fixed with an explicit height.
+- **35 controls were under 40px**. Now 0.

@@ -402,46 +402,71 @@ p{margin:0 0 1em}
 [data-magnet]{transition:transform .45s cubic-bezier(.16,1,.3,1)}
 
 /* ---------- the anatomy sequence (dark, scroll-driven) ---------- */
-.anat{background:#0a0908;color:#efe9df;position:relative}
+/* Light variant. Keying the frames onto white is not possible - the suit's luma (31,
+   darkest decile 19) overlaps the background's (17), so any threshold that removes the
+   backdrop also dissolves the garment. Instead the section goes light and the garment
+   keeps its own dark panel, which reads as a lit stage rather than a pasted rectangle. */
+.anat{background:var(--bone);color:var(--ink);position:relative}
+/* the panel covers ONLY the stage column - an inset shorthand ending in 0 spanned the
+   whole section and buried the copy */
+.anat-stage-panel{position:absolute;top:6vh;bottom:8vh;right:0;left:40%;background:#11120d;
+  box-shadow:0 30px 90px -40px rgba(17,18,13,.5);z-index:0}
 .anat-track{position:relative}
-.anat-sticky{position:sticky;top:0;height:100vh;overflow:hidden;
-  display:grid;place-items:center;isolation:isolate}
-.anat-stage{position:absolute;inset:0;z-index:1}
+.anat-sticky{position:sticky;top:0;height:100vh;overflow:hidden;isolation:isolate;
+  display:grid;grid-template-columns:minmax(0,42%) minmax(0,58%);align-items:center}
+/* stage is the right-hand column, inset so the garment never touches an edge */
+.anat-stage{position:absolute;top:6vh;bottom:8vh;right:0;left:40%;z-index:1;
+  padding:2vh 1.5vw 3vh}
 /* image-sequence stage: every frame stacked, only the current one visible. No video
    element, so nothing can stall on a codec, a seek, or a blob URL. */
-.anat-f{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  opacity:0}
+/* The garment sits in its own column rather than filling the screen. Two reasons:
+   the copy no longer has to fight it for legibility, and a smaller display area means
+   fewer upscaled pixels per screen pixel, so the 480p-origin frames read sharper. */
+.anat-f{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  object-position:center 46%;opacity:0;
+  -webkit-mask-image:radial-gradient(ellipse 78% 82% at 50% 48%,#000 58%,transparent 97%);
+          mask-image:radial-gradient(ellipse 78% 82% at 50% 48%,#000 58%,transparent 97%)}
 .anat-f.on{opacity:1}
 .anat-stage::after{content:'';position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(ellipse at 50% 45%,transparent 30%,rgba(8,8,7,.72) 88%)}
+  background:radial-gradient(ellipse at 50% 46%,transparent 62%,rgba(17,18,13,.5) 98%)}
 
-.anat-copy{position:relative;z-index:3;width:100%;max-width:var(--wrap);
-  margin:0 auto;padding-inline:var(--pad);height:100%}
-.anat-step{position:absolute;top:50%;transform:translateY(-42%);max-width:min(360px,34vw);
-  opacity:0;pointer-events:none;
+.anat-copy{position:relative;z-index:3;height:100%;grid-column:1;
+  padding-left:var(--pad);padding-right:2vw;display:grid;align-items:center}
+.anat-step{grid-area:1/1;max-width:42ch;opacity:0;pointer-events:none;
+  transform:translateY(18px);
   transition:opacity .7s ease,transform 1s cubic-bezier(.16,1,.3,1)}
-.anat-step.on{opacity:1;transform:translateY(-50%)}
-.anat-step.left{left:var(--pad)}
-.anat-step.right{right:var(--pad);text-align:right}
-.anat-num{font-size:10px;letter-spacing:.3em;color:var(--bronze-lt);font-weight:600;display:block;margin-bottom:12px}
-.anat-eyebrow{font-size:9.5px;letter-spacing:.32em;text-transform:uppercase;color:#8d857a;
+.anat-step.on{opacity:1;transform:none}
+/* the alternating left/right sides are gone: a fixed column is simply easier to read
+   while the page is moving, which was the whole complaint */
+.anat-step.left,.anat-step.right{text-align:left}
+.anat-num{font-size:10px;letter-spacing:.3em;color:var(--bronze);font-weight:600;display:block;margin-bottom:12px}
+.anat-eyebrow{font-size:9.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--ink-3);
   font-weight:600;display:block;margin-bottom:16px}
 .anat-step h3{font-family:var(--serif);font-weight:300;font-size:clamp(30px,3.9vw,58px);
-  line-height:1.02;letter-spacing:-.01em;margin-bottom:18px;color:#f6f1e8}
-.anat-step h3 em{font-style:italic;color:#d8bd92}
-.anat-step p{font-size:13.5px;line-height:1.75;color:#a9a196;margin-bottom:18px}
-.anat-cap{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:#7d7469;font-weight:600}
+  line-height:1.02;letter-spacing:-.01em;margin-bottom:18px;color:var(--ink)}
+.anat-step h3 em{font-style:italic;color:var(--bronze)}
+.anat-step p{font-size:13.5px;line-height:1.75;color:var(--ink-2);margin-bottom:18px}
+.anat-cap{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-4);font-weight:600}
 .anat-count{position:absolute;right:var(--pad);bottom:34px;z-index:3;
   font-size:10px;letter-spacing:.24em;color:#6b635a;font-weight:600}
 .anat-rule{position:absolute;left:var(--pad);right:var(--pad);bottom:30px;height:1px;
-  background:rgba(255,255,255,.1);z-index:3}
-.anat-rule i{position:absolute;left:0;top:0;bottom:0;background:var(--bronze-lt);
+  background:var(--line);z-index:3}
+.anat-rule i{position:absolute;left:0;top:0;bottom:0;background:var(--bronze);
   transform-origin:0 50%;transform:scaleX(0);transition:transform .5s ease;display:block}
 
-@media(max-width:860px){
-  .anat-step{max-width:none;left:var(--pad) !important;right:var(--pad) !important;
-    text-align:left !important;top:auto;bottom:12vh;transform:none}
-  .anat-step.on{transform:none}
+@media(max-width:900px){
+  .anat-sticky{grid-template-columns:1fr;grid-template-rows:52vh 1fr}
+  /* the frames are absolutely positioned, so the stage has no intrinsic height and
+     collapsed to 34px on a phone. It needs an explicit one. */
+  .anat-stage{position:relative;inset:auto;width:100%;height:52vh;grid-row:1;padding:2vh 4vw}
+  .anat-stage-panel{top:0;bottom:auto;left:0;right:0;height:52vh}
+  .anat-copy{grid-row:2;grid-column:1;padding:0 var(--pad) 12vh;align-items:start}
+  .anat-step{max-width:none;transform:translateY(14px)}
+  .anat-step h3{font-size:clamp(26px,7.4vw,40px)}
+  .anat-step p{font-size:14px}
+  .anat-step.centre{position:absolute;top:44%;left:50%}
+  .anat-count{bottom:18px}
+  .anat-rule{bottom:10px}
 }
 
 /* ---------- the collection room (white, WebGL) ---------- */
@@ -466,19 +491,19 @@ p{margin:0 0 1em}
 .anat-cue{position:absolute;left:50%;transform:translateX(-50%);bottom:64px;z-index:4;
   display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none;
   transition:opacity .6s ease}
-.anat-cue span{font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:#8d857a;font-weight:600}
-.anat-cue svg{width:16px;height:16px;stroke:var(--bronze-lt);fill:none;stroke-width:1.4;
+.anat-cue span{font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.anat-cue svg{width:16px;height:16px;stroke:var(--bronze);fill:none;stroke-width:1.4;
   animation:cuebob 2.1s ease-in-out infinite}
 @keyframes cuebob{0%,100%{transform:translateY(0);opacity:.55}50%{transform:translateY(5px);opacity:1}}
 .anat-cue.gone{opacity:0}
 @media(max-width:860px){.anat-cue{bottom:auto;top:14vh}}
 
 /* header inverts over the dark anatomy stage instead of sitting on it as a white bar */
-.hdr.on-dark{background:rgba(10,9,8,.55);backdrop-filter:saturate(1.2) blur(16px);
+.hdr.on-dark{background:rgba(255,255,255,.86);backdrop-filter:saturate(1.2) blur(16px);
   border-bottom-color:rgba(255,255,255,.08)}
-.hdr.on-dark .brand,.hdr.on-dark .nav a,.hdr.on-dark .navitem > a{color:#f2ede4}
-.hdr.on-dark .brand small{color:var(--bronze-lt)}
-.hdr.on-dark .iconbtn svg{stroke:#f2ede4}
+.hdr.on-dark .brand,.hdr.on-dark .nav a,.hdr.on-dark .navitem > a{color:var(--ink)}
+.hdr.on-dark .brand small{color:var(--bronze)}
+.hdr.on-dark .iconbtn svg{stroke:var(--ink)}
 .hdr.on-dark .badge{background:var(--bronze-lt)}
 .hdr,.hdr .brand,.hdr .nav a,.hdr .iconbtn svg{transition:color .4s ease,stroke .4s ease,background .4s ease}
 
@@ -494,8 +519,8 @@ p{margin:0 0 1em}
 html:not(.js) [data-reveal]{opacity:1 !important;transform:none !important;clip-path:none !important}
 
 /* the opening step is a centred title card, the way the reference film opens */
-.anat-step.centre{left:50%;right:auto;transform:translate(-50%,-42%);text-align:center;
-  max-width:min(760px,86vw)}
+.anat-step.centre{position:fixed;left:50%;top:50%;transform:translate(-50%,-42%);
+  text-align:center;max-width:min(760px,86vw);z-index:4}
 .anat-step.centre.on{transform:translate(-50%,-50%)}
 .anat-step.centre h3{font-size:clamp(44px,7.4vw,104px);line-height:.98;margin-bottom:22px}
 .anat-step.centre p{max-width:44ch;margin-inline:auto;font-size:15px}
@@ -508,10 +533,14 @@ html:not(.js) [data-reveal]{opacity:1 !important;transform:none !important;clip-
 }
 
 /* the opening title crosses a white shirt, so it needs its own ground to stay legible */
+.anat-step.centre{color:#f6f1e8}
+.anat-step.centre h3{color:#f6f1e8}
+.anat-step.centre p{color:#c9c2b6}
+.anat-step.centre .anat-eyebrow,.anat-step.centre .anat-cap{color:#a49b8d}
 .anat-step.centre::before{content:'';position:absolute;left:50%;top:50%;
-  transform:translate(-50%,-50%);width:150%;height:190%;z-index:-1;pointer-events:none;
+  transform:translate(-50%,-50%);width:160%;height:200%;z-index:-1;pointer-events:none;
   background:radial-gradient(ellipse at center,
-    rgba(8,8,7,.90) 0%, rgba(8,8,7,.78) 38%, rgba(8,8,7,.45) 62%, rgba(8,8,7,0) 80%)}
+    rgba(17,18,13,.92) 0%, rgba(17,18,13,.80) 40%, rgba(17,18,13,.45) 66%, rgba(17,18,13,0) 82%)}
 .anat-step.centre h3{text-shadow:0 2px 30px rgba(0,0,0,.65)}
 
 /* the stage is the camera: it scales about a focal point per step */
@@ -631,3 +660,26 @@ html:not(.js) [data-reveal]{opacity:1 !important;transform:none !important;clip-
   font-variant-numeric:tabular-nums}
 .spin:focus-visible{outline:2px solid var(--bronze);outline-offset:3px}
 @media(prefers-reduced-motion:reduce){.spin-hint::before{animation:none}}
+
+
+/* ---------- touch targets ----------
+   35 controls measured under 40px on a phone. Anything tappable gets a comfortable
+   minimum on coarse pointers, without changing the desktop look. */
+@media(pointer:coarse){
+  .sizes button{min-height:46px;min-width:56px}
+  .card-sizes button{min-height:40px;min-width:44px;padding:9px 12px}
+  .chip{min-height:42px;display:inline-flex;align-items:center}
+  .iconbtn{min-width:44px;min-height:44px;align-items:center;justify-content:center}
+  .btn{min-height:48px}
+  .btn.sm{min-height:42px}
+  .qty button,.pos-qty button{min-width:40px;min-height:40px}
+  .card-fav{width:42px;height:42px}
+  .x{min-width:44px;min-height:44px}
+  .opt,.sw{min-height:44px}
+  .sw{min-width:44px}
+  .acc summary{padding:18px 0}
+  .ftr a,.mnav a{display:inline-block;padding-block:6px}
+  /* hover-only affordances do not exist on touch, so show them */
+  .card-sizes{transform:none;position:static;background:none;padding:10px 0 0;justify-content:flex-start}
+  .look-cap,.spin-hint{opacity:1}
+}

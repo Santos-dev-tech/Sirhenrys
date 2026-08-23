@@ -152,9 +152,9 @@ const SH = (() => {
 
   /* Garments photographed all the way round. Only these get the 360 viewer; everything
      else falls back to the flat gallery, so the page never shows an empty spinner. */
-  // Four photographed positions. Eight would be smoother but each angle is a paid
-  // generation; the viewer interpolates nothing, so every frame here is real.
-  const SPIN_ANGLES = [0, 90, 180, 270];
+  // Eight photographed positions, 45 degrees apart. The viewer interpolates nothing -
+  // every frame shown is a real generation, which is why the count is what it is.
+  const SPIN_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
   const SPINNABLE = ['carlo-navy'];
   const hasSpin = slug => SPINNABLE.includes(slug);
   const spinFrames = slug => SPIN_ANGLES.map(a =>
