@@ -68,6 +68,23 @@ p{margin:0 0 1em}
   background:var(--bronze);transform:scaleX(0);transition:.3s}
 .navitem:hover > a::after{transform:scaleX(1)}
 .hdr-act{display:flex;gap:22px;align-items:center;justify-content:flex-end}
+/* Home was only ever reachable through the wordmark, which nobody reads as a button. */
+.navhome{display:flex;align-items:center;padding:26px 0;color:var(--ink-3);transition:color .2s}
+.navhome:hover{color:var(--ink)}
+.navhome svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* Sign in has to be findable without turning into a call to action - the campaign
+   imagery is the loud thing on this page. So it reads as one of the icons, with a word
+   next to it, and only earns a border on hover. */
+.signin{display:inline-flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;
+  border:1px solid transparent;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  font-weight:600;color:var(--ink);white-space:nowrap;transition:.2s ease;cursor:pointer}
+.signin svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.4}
+.signin:hover{border-color:var(--line);background:var(--bone)}
+.signin.on{color:var(--bronze)}
+@media(max-width:1100px){.signin span{display:none}.signin{padding:6px}}
+
 .iconbtn{background:none;border:0;cursor:pointer;padding:6px;position:relative;display:flex}
 .iconbtn svg{width:19px;height:19px;stroke:var(--ink);fill:none;stroke-width:1.4}
 .badge{position:absolute;top:-2px;right:-4px;background:var(--bronze);color:#fff;font-size:9px;
@@ -707,3 +724,27 @@ html:not(.js) [data-reveal]{opacity:1 !important;transform:none !important;clip-
   .card-sizes{transform:none;position:static;background:none;padding:10px 0 0;justify-content:flex-start}
   .look-cap,.spin-hint{opacity:1}
 }
+
+
+/* ---------- customer sign in / create account ---------- */
+/* Deliberately quiet. A shop's sign-in should be findable and then get out of the way -
+   it is not the thing being sold. One card, one rule under the active tab, and the only
+   filled control on the page is the submit. */
+.auth{border:1px solid var(--line);background:var(--paper);padding:40px 34px 34px;margin-top:20px}
+.auth-h{font-family:var(--serif);font-weight:300;font-size:34px;text-align:center;
+  margin:10px 0 8px;letter-spacing:-.01em}
+.auth-sub{text-align:center;color:var(--ink-3);font-size:12.5px;line-height:1.7;margin-bottom:26px}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;margin-bottom:24px;border-bottom:1px solid var(--line)}
+.auth-tab{background:none;border:0;cursor:pointer;padding:12px 4px;font-size:10.5px;
+  letter-spacing:.18em;text-transform:uppercase;font-weight:600;color:var(--ink-4);
+  border-bottom:1px solid transparent;margin-bottom:-1px;transition:.2s}
+.auth-tab:hover{color:var(--ink-2)}
+.auth-tab.on{color:var(--ink);border-bottom-color:var(--bronze)}
+.auth-form .field{margin-bottom:16px}
+.auth-hint{display:block;font-size:11px;color:var(--ink-4);margin-top:6px}
+.auth-err{background:var(--bronze-pale);border-left:2px solid var(--bad);color:#7a2a2a;
+  font-size:12px;line-height:1.6;padding:10px 12px;margin:0 0 16px}
+.auth-foot{text-align:center;font-size:12px;color:var(--ink-3);margin:22px 0 0}
+.auth-foot a{border-bottom:1px solid var(--line)}
+.auth-foot a:hover{border-bottom-color:var(--bronze);color:var(--bronze)}
+@media(pointer:coarse){.auth-tab{min-height:46px}}

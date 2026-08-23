@@ -32,6 +32,8 @@
 <header class="hdr">
   <div class="wrap hdr-in">
     <nav class="nav">
+      <a class="navhome" href="#/" aria-label="Home" title="Home">
+        <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.75 20v-6h4.5v6"/></svg></a>
       <button class="iconbtn burger" data-menu aria-label="Menu">
         <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
       <div class="navitem"><a href="#/shop?cat=suits">Suits</a>
@@ -85,8 +87,9 @@
         <svg viewBox="0 0 24 24"><path d="M12 21s7-5.4 7-11a7 7 0 10-14 0c0 5.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg></a>
       <a class="iconbtn" href="#/wishlist" aria-label="Wishlist">
         <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 000-7.8z"/></svg></a>
-      <a class="iconbtn" href="#/account" aria-label="Account">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0115 0"/></svg></a>
+      <a class="signin" href="#/account" data-signin>
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0115 0"/></svg>
+        <span data-signin-label>Sign in</span></a>
       <button class="iconbtn" data-opencart aria-label="Bag">
         <svg viewBox="0 0 24 24"><path d="M6 7h12l1.2 13H4.8zM9 7V5.5a3 3 0 016 0V7"/></svg>
         <span class="badge" data-cartcount style="display:none">0</span></button>
@@ -247,8 +250,9 @@
 <script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/data.js"></script>
 <script src="assets/js/sync.js"></script>
+<script src="assets/js/auth.js"></script>
 <script src="assets/js/app.js"></script>
 <script src="assets/js/admin.js"></script>
-<script>Motion.boot(); SHSync.start();</script>
+<script>Motion.boot(); SHSync.start(); SHAuth.start();</script>
 </body>
 </html>

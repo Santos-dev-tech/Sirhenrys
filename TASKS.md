@@ -423,3 +423,73 @@ and bottom. The opaque stretch (5%-92%) is set to clear the frames at top:6vh / 
 so no frame edge is ever left hanging over a transparent part of its own ground.
 Very-dark pixels across the section tail: **54.7% -> 50.7%, 50.0% -> 39.8%, 49.2% -> 38.7%,
 27.0% -> 20.6%.**
+
+
+## 16. A way in, and a way home  `[x]`
+
+> "there is no page saying sign in where am i supposed to sign in from"
+> "the home page is too hard to navigate just add a home icon instead of the text"
+> "make the log in and sign up buttons obvious but still blends in"
+
+The staff sign-in page **was** rendering correctly — measured it before changing anything:
+a 420x451 card, three staff buttons, PINs printed on it. The problem was never that it was
+missing, it was that the only door to it was a small text link in the footer.
+
+And for customers there was no sign-in at all. `#/account` simply listed orders.
+
+- [x] **Home icon**, first item in the nav. Home was previously reachable only through the
+      wordmark, which nobody reads as a button
+- [x] **Sign in** in the header: person icon plus the word, in the same type treatment as
+      the nav, no fill and no colour. It earns a border only on hover — findable without
+      becoming the loudest thing on a page whose job is to show campaign photography
+- [x] The control **states what it knows**: "Sign in" when nobody is, the customer's first
+      name in bronze when somebody is
+- [x] **Customer accounts** on Firebase Auth, email and password. One card, two tabs, both
+      forms mounted at once so switching never loses what has been typed
+- [x] "Staff? Open the staff console" at the foot of that card - the console is now
+      reachable from the storefront without hunting
+
+### Decisions worth keeping
+- Customer auth is **separate from the staff gate**. Who may open the till and who a shopper
+  is are different questions; conflating them is how a shop-floor login ends up reading the
+  books.
+- Signing out returns to **anonymous** auth rather than to none. `sync.js` needs a signed-in
+  user for the Firestore rules to pass, so signing out of nothing would silently stop every
+  write.
+- Auth changes repaint through a single `SHAuth.onChange` subscription rather than at each
+  call site. Signing out from the account page does not change the route, so nothing
+  route-driven would have caught it.
+- Firebase error codes are translated. `auth/operation-not-allowed` in particular tells you
+  exactly which console switch to flip instead of showing a raw code.
+- It degrades: no SDK, no project, or `enabled:false` and it keeps a local profile so the
+  demo still behaves like a shop - and says "signed in on this device only" rather than
+  pretending.
+
+**Verified** by `tools/authtest.js`: a real round trip against the live project - account
+created (`ok: true, local: false`, real uid), header switches to the first name, account
+page shows the full name, sign-out returns to the form, and `syncStillOn: true` afterwards,
+which is the assertion that the anonymous fallback took over. Tab switching keeps typed
+input. Email/Password is already enabled on the project.
+
+## 17. The shaky shirt-to-waistcoat transition  `[x]`
+
+> "transition from shirt to waistcoat is shaky check it out"
+
+My regression, from task 15. I had used optical flow to spread the source clip's jump cut
+across eight frames. Flow works by **moving pixels**, and a waistcoat appearing is an
+occlusion with no motion to track - so it invented warps, and the warps wobbled.
+
+A cross-dissolve is the right tool for an occlusion. Measured across the same eight frames:
+
+| | mean step | variation between steps |
+|---|---|---|
+| optical flow | 3.07 | 0.13 |
+| **cross-dissolve** | **1.83** | **0.07** |
+
+Lower on both, and it warps nothing at all. Largest single-frame step across the whole
+transition is now **3.07**, against the source cut's 10.3 - and better than the 4.55 the
+flow version managed.
+
+Flow is still the right tool for the 360, where the pose genuinely rotates - it just failed
+there for the opposite reason, too *much* motion. Both results are recorded so neither gets
+tried the wrong way round again.

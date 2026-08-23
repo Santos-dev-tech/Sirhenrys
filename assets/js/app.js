@@ -537,8 +537,58 @@
     </div><div style="height:80px"></div>`;
   };
 
-  V.account = () => `<div class="wrap" style="max-width:900px">
-    <div class="sec-hd" data-reveal><div><div class="eyebrow">The Henry Club</div><h2>My account</h2></div></div>
+  /* Signed out, the account route IS the sign-in page. There is no separate URL for it:
+     a shopper who clicks "Sign in" and a shopper who clicks "My account" want the same
+     screen, and which one they get depends only on whether we know who they are. */
+  V.account = () => {
+    const me = SHAuth.current();
+    if (!me) return V.signin();
+    return V.accountInner(me);
+  };
+
+  V.signin = (mode) => `<div class="wrap" style="max-width:460px">
+    <div class="auth">
+      <div class="eyebrow" style="text-align:center">The Henry Club</div>
+      <h2 class="auth-h">Sign in</h2>
+      <p class="auth-sub">Track your orders, follow an alteration through the workshop,
+        and keep your measurements on file for next time.</p>
+
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab on" data-authtab="in" role="tab">Sign in</button>
+        <button class="auth-tab" data-authtab="up" role="tab">Create account</button>
+      </div>
+
+      <form class="auth-form" data-authform="in">
+        <div class="field"><label for="ai-email">Email</label>
+          <input id="ai-email" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="ai-pass">Password</label>
+          <input id="ai-pass" type="password" autocomplete="current-password" required></div>
+        <p class="auth-err hide" data-autherr></p>
+        <button class="btn" style="width:100%">Sign in</button>
+      </form>
+
+      <form class="auth-form hide" data-authform="up">
+        <div class="field"><label for="au-name">Name</label>
+          <input id="au-name" type="text" autocomplete="name" required></div>
+        <div class="field"><label for="au-email">Email</label>
+          <input id="au-email" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="au-pass">Password</label>
+          <input id="au-pass" type="password" autocomplete="new-password" minlength="6" required>
+          <span class="auth-hint">At least six characters.</span></div>
+        <p class="auth-err hide" data-autherr></p>
+        <button class="btn" style="width:100%">Create account</button>
+      </form>
+
+      <p class="auth-foot">Staff? <a href="#/admin">Open the staff console</a>.</p>
+    </div>
+  </div><div style="height:80px"></div>`;
+
+  V.accountInner = (me) => `<div class="wrap" style="max-width:900px">
+    <div class="sec-hd" data-reveal><div><div class="eyebrow">The Henry Club</div>
+      <h2>${esc(me.name || 'My account')}</h2>
+      <p class="muted" style="font-size:12.5px;margin-top:6px">${esc(me.email)}${
+        me.local ? ' &middot; signed in on this device only' : ''}</p></div>
+      <button class="btn ghost sm" data-signout>Sign out</button></div>
     <div class="eyebrow" style="margin-bottom:14px">Orders</div>
     ${state.orders.length ? state.orders.map(o => `
       <a href="#/order/${o.id}" style="display:grid;grid-template-columns:1fr auto auto;gap:20px;align-items:center;
@@ -773,6 +823,7 @@
       go('/shop?' + p.toString());
     };
 
+    if (view === 'account') wireAuth();
     if (view === 'product') wirePDP();
     if (view === 'bespoke') wireMTM();
     if (view === 'checkout') wireCheckout();
@@ -846,6 +897,41 @@
     Motion.mountAnatomy(document.getElementById('anatomy'));
     Motion.mountSpinners(document);
     Motion.refresh(document);
+  }
+
+  /* Sign in / create account. Both forms live in the same view and only one is shown,
+     so switching tabs never costs a re-render and never loses what has been typed. */
+  function wireAuth() {
+    const tabs = [...document.querySelectorAll('[data-authtab]')];
+    const forms = [...document.querySelectorAll('[data-authform]')];
+    if (!tabs.length) return;
+
+    const show = k => {
+      tabs.forEach(t => t.classList.toggle('on', t.dataset.authtab === k));
+      forms.forEach(f => f.classList.toggle('hide', f.dataset.authform !== k));
+    };
+    tabs.forEach(t => t.onclick = () => show(t.dataset.authtab));
+
+    forms.forEach(f => f.onsubmit = async e => {
+      e.preventDefault();
+      const err = f.querySelector('[data-autherr]');
+      const btn = f.querySelector('button.btn');
+      const say = m => { err.textContent = m; err.classList.remove('hide'); };
+      err.classList.add('hide');
+      // a second submit while the first is in flight creates two accounts
+      btn.disabled = true;
+      const was = btn.textContent;
+      btn.textContent = 'One moment...';
+
+      const val = id => (document.getElementById(id) || {}).value || '';
+      const r = f.dataset.authform === 'up'
+        ? await SHAuth.signUp(val('au-name').trim(), val('au-email').trim(), val('au-pass'))
+        : await SHAuth.signIn(val('ai-email').trim(), val('ai-pass'));
+
+      btn.disabled = false; btn.textContent = was;
+      if (!r.ok) { say(r.error); return; }
+      render();                                    // straight into the account view
+    });
   }
 
   function wirePDP() {
@@ -1069,7 +1155,36 @@
   }
 
   /* ---------- chrome (header/cart drawer) ---------- */
+  document.addEventListener('click', e => {
+    if (e.target.closest('[data-signout]')) {
+      e.preventDefault();
+      SHAuth.signOut();
+    }
+  });
+
+  /* Any change of who is signed in repaints the header, and repaints the account view
+     itself if that is what is on screen. Doing it here rather than at each call site is
+     what makes signing out from the account page work: it cannot rely on a route change,
+     because signing out does not change the route. */
+  let authBooted = false;
+  SHAuth.onChange(() => {
+    if (!authBooted) { authBooted = true; return; }   // the immediate call on register
+    syncChrome();
+    const seg = (location.hash.slice(1) || '/').split('?')[0].split('/').filter(Boolean)[0];
+    if (seg === 'account') render();
+  });
+
   function syncChrome() {
+    // the header follows the signed-in state: "Sign in" when nobody is, a first name when
+    // somebody is, so the control answers "am I signed in?" without being clicked
+    const me = window.SHAuth && SHAuth.current();
+    document.querySelectorAll('[data-signin-label]').forEach(e => {
+      e.textContent = me ? (me.name || 'Account').split(' ')[0] : 'Sign in';
+    });
+    document.querySelectorAll('[data-signin]').forEach(e => {
+      e.classList.toggle('on', !!me);
+      e.setAttribute('aria-label', me ? 'My account' : 'Sign in or create an account');
+    });
     document.querySelectorAll('[data-cartcount]').forEach(e => {
       e.textContent = cart.count;
       e.style.display = cart.count ? '' : 'none';

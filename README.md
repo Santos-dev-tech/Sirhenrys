@@ -103,6 +103,7 @@ tools/set-staff-claims.js     grants real staff accounts their Firestore claim
 assets/css/          site.css (global), admin.css (scoped under .ad)
 assets/js/firebase-config.js  the one file to edit for a different Firebase project
 assets/js/sync.js    Firestore sync, degrades to localStorage
+assets/js/auth.js    customer accounts (Firebase Auth), degrades to a local profile
 assets/js/data.js    catalogue, stock model, cart, orders, persistence
 assets/js/app.js     storefront router + views
 assets/js/motion.js  Lenis, the WebGL room, scroll reveals, the anatomy camera
