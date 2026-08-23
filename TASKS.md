@@ -631,3 +631,43 @@ clicks from `document`, so it survives the shell being torn down and rebuilt.
 
 Verified: storefront `onScreen:false`, console `onScreen:true` at `x:1329 y:836 89x42`,
 `inShop:false` in both.
+
+### 19c. Three more, all found by printing the raw error instead of trusting the mapped one
+
+**"Stuck at Thinking..."** — `SHAI.ask` refuses a concurrent call, but the UI removed its
+"Thinking..." placeholder only on the path that then never ran, so a second click while the
+first was in flight orphaned it permanently. And nothing in the SDK promises to settle: a
+dropped connection left the promise pending for ever. Now every wire call is raced against
+a **25s** timeout, the whole question against a **70s** budget across all models, the
+placeholder is removed in a `finally`, and a second question while one is running says so.
+
+**"This project refused: gemini-3.7-flash, gemini-3.6-flash..."** was wrong, and wrong in
+the same way as before. The real error:
+
+```
+[400] Role 'function' is not supported.
+      Please use a valid role: SYSTEM, SYSTEM_1, USER, ASSISTANT, DEVELOPER, CONTEXT...
+```
+
+`isModelRefused` matched on `not supported` and blamed the model. It now requires the
+message to mention a **model** at all before it will call something a model problem.
+
+**And the underlying 400 is real**: `gemini-3.6-flash` rejects the function-response turn.
+That would be maddening, because by then the work has happened - the screen is open, the
+draft is on screen - and only the model's phrasing of it is lost. So the follow-up is now
+three-deep: send the proper `functionResponse`; if the model rejects the role, say the same
+thing as an ordinary **user** turn, which every model accepts; and only if that fails too,
+report the outcomes plainly. The turn never fails after the work is done.
+
+- [x] Candidates extended to four working models. Probed, not assumed: `gemini-3.6-flash`
+      and `gemini-3.5-flash-lite` both answer; `gemini-3.7-flash-lite` does not exist.
+      The free tier's 20/day is **per model**, so four names is four allowances
+- [x] The panel now shows **what the server actually said** under any error, in a
+      collapsed `<details>`. Three separate misdiagnoses came from trusting a friendly
+      message over the raw one; a confident wrong message is worse than a raw right one
+
+Verified: both previously-failing questions return `ok:true` and perform their action;
+a timeout now reports itself in 25s instead of hanging.
+
+**Quota note:** debugging this spent a large share of today's free-tier requests. If the
+panel says the allowance is used up, it resets daily - or add billing in Google Cloud.

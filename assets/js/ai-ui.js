@@ -109,16 +109,46 @@
     }
   };
 
+  let inFlight = false;
+
   async function send(text) {
     if (!text.trim()) return;
+    // Clicking a second suggestion while the first is running used to leave the first
+    // "Thinking..." on screen for ever, because ask() refuses a concurrent call and the
+    // placeholder was only removed on the path that never ran.
+    if (inFlight) { say('err', 'Still working on the last question - one at a time.'); return; }
+
+    inFlight = true;
     say('me', text);
     const input = $('aiInput'); if (input) input.value = '';
     const thinking = say('it', 'Thinking...');
 
-    const r = await SHAI.ask(history, text, handlers);
-    thinking.remove();
+    let r;
+    try {
+      r = await SHAI.ask(history, text, handlers);
+    } catch (e) {
+      r = { ok: false, error: (e && e.message) || String(e) };
+    } finally {
+      inFlight = false;
+      thinking.remove();          // in every case, including a throw
+    }
 
-    if (!r.ok) { say('err', r.error); return; }
+    if (!r.ok) {
+      say('err', r.error);
+      // The mapped message has been wrong before. Show the server's own words underneath,
+      // small, so a misdiagnosis is visible instead of authoritative.
+      const raw = (SHAI.status() || {}).lastRaw;
+      if (raw && raw.slice(0, 60) !== String(r.error).slice(0, 60)) {
+        const d = document.createElement('details');
+        d.className = 'ai-raw';
+        d.innerHTML = '<summary>what the server actually said</summary>';
+        const pre = document.createElement('pre');
+        pre.textContent = raw;
+        d.appendChild(pre);
+        const log = logEl(); if (log) { log.appendChild(d); log.scrollTop = log.scrollHeight; }
+      }
+      return;
+    }
     say('it', r.text || 'Done.');
     history.push({ role: 'user', parts: [{ text }] });
     history.push({ role: 'model', parts: [{ text: r.text || '' }] });

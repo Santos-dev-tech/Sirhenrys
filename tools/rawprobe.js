@@ -14,9 +14,17 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
      proposeTransfer:a=>{calls.push(['proposeTransfer',a]);return 'drafted';},
      draftMessage:a=>{calls.push(['draftMessage',a]);return 'drafted';}
    };
-   const r=await SHAI.ask([], 'What should I move between branches this week?', handlers);
+   const asks=['Which alterations are due or overdue?','Draft a reply to the Sidian Bank enquiry'];
+   const results=[];
+   for(const q of asks){
+     const rr=await SHAI.ask([], q, handlers);
+     results.push({q, ok:rr.ok, error:rr.error||null, raw:(SHAI.status().lastRaw||'').slice(0,260),
+                   model:SHAI.status().modelName, text:(rr.text||'').slice(0,160), actions:(rr.actions||[]).map(a=>a.name)});
+   }
+   window.__res=results;
+   const r={ok:true};
    window.__calls=calls;
-   return {ok:r.ok, error:r.error, raw:SHAI.status().lastRaw, calls, textLen:(r.text||'').length, text:(r.text||'').slice(0,500), actions:r.actions,
+   return {results, calls,
            model:SHAI.status().modelName, candidates:SHAI.status().candidates};
  });
  console.log(JSON.stringify(out,null,1));

@@ -268,3 +268,7 @@
 .ai-note{font-size:10.5px;color:#9c9691;padding:0 18px 14px;margin:0;line-height:1.5}
 @media(max-width:640px){.ai{width:100%}}
 @media(pointer:coarse){.ad-showing .ai-fab{min-height:46px}.ai-ask input{min-height:44px}}
+
+.ai-raw{font-size:11px;color:#9c9691;border-left:2px solid #e6e2dd;padding:6px 10px}
+.ai-raw summary{cursor:pointer;letter-spacing:.04em}
+.ai-raw pre{white-space:pre-wrap;word-break:break-word;margin:8px 0 0;font-size:10.5px;line-height:1.5;color:#6f6a65}

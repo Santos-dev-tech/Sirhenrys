@@ -11,8 +11,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  await p.goto('http://localhost:8100/index.html',{waitUntil:'domcontentloaded',timeout:60000});
  await sleep(5000);
  await p.evaluate(v=>{window.__SDKV=v;}, process.env.SDKV||'12.18.0');
- const names=['gemini-3.7-flash','gemini-2.5-flash','gemini-flash-latest','gemini-2.0-flash',
-              'gemini-2.5-flash-lite','gemini-1.5-flash','gemini-3-flash','gemini-2.5-pro'];
+ const names=['gemini-3.6-flash','gemini-3.5-flash-lite','gemini-3.7-flash-lite'];
  const out=await p.evaluate(async(names)=>{
    const SDK='https://www.gstatic.com/firebasejs/'+(window.__SDKV||'12.18.0')+'/';
    const [{initializeApp,getApps,getApp},{getAI,getGenerativeModel,GoogleAIBackend}]=

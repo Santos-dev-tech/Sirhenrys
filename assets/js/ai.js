@@ -188,7 +188,8 @@ async function start() {
     /* Probed against this project, August 2026. Every 2.x model is retired - the server
        says so itself: "models/gemini-2.5-flash is no longer available to new users,
        use models/gemini-3.6-flash". So the list holds only names that answered. */
-    state.candidates = [cfg.aiModel, 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-flash-latest']
+    state.candidates = [cfg.aiModel, 'gemini-3.7-flash', 'gemini-3.6-flash',
+                        'gemini-3.5-flash-lite', 'gemini-flash-latest']
       .filter((m, i, a) => m && a.indexOf(m) === i);
     state.modelName = state.candidates[0];
     state.model = state.build(state.modelName);
@@ -203,10 +204,26 @@ async function start() {
 const isQuota = e => /\[429|RESOURCE_EXHAUSTED|exceeded your current quota/i.test(
   (e && (e.message || String(e))) || '');
 
+/* Nothing in the SDK promises to settle. A dropped connection mid-request leaves the
+   promise pending and the panel sits on "Thinking..." with no way back. */
+const TIMEOUT_MS = 25000;      // one request
+const BUDGET_MS = 70000;      // the whole question, across every model tried
+function withTimeout(p, what) {
+  let t;
+  return Promise.race([
+    Promise.resolve(p).finally(() => clearTimeout(t)),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new Error(
+      'Timed out after ' + (TIMEOUT_MS / 1000) + 's waiting for ' + what + '.')), TIMEOUT_MS); })
+  ]);
+}
+
 // Is this "no such model" rather than something that would fail for every model?
 function isModelRefused(e) {
   const m = (e && (e.message || String(e))) || '';
-  return /not found|NOT_FOUND|404|unsupported|not supported|is not available|invalid model|does not exist/i.test(m);
+  // Must be about a MODEL. "not supported" on its own also matches a 400 complaining
+  // about a message role, which sent the last diagnosis off after the wrong thing.
+  if (!/model/i.test(m)) return false;
+  return /\[404|NOT_FOUND|not found|is no longer available|is not available|unsupported|invalid model|does not exist/i.test(m);
 }
 
 function readable(e) {
@@ -246,6 +263,7 @@ function readable(e) {
     return 'The Firebase config in firebase-config.js is not accepted by this project.';
   if (/\[403|PERMISSION_DENIED/.test(m))
     return 'This project is not permitted to call that model. Check Firebase console → AI Logic.';
+  if (/Timed out after/i.test(m)) return m + ' Ask again.';
   if (/Failed to fetch|NetworkError|dynamically imported/i.test(m))
     return 'Could not reach the Firebase AI SDK. Check the connection.';
   return m || 'The assistant could not start.';
@@ -259,15 +277,19 @@ async function ask(history, text, handlers) {
   if (state.busy)   return { ok: false, error: 'Still working on the last question.' };
   state.busy = true; notify();
   try {
-    // Walk the candidate list until one is accepted, then stay on it for the session.
+    /* Walk the candidate list until one is accepted, then stay on it for the session.
+       Bounded by a wall-clock budget as well as by the list: four models each allowed a
+       full timeout is over two minutes of a staff member watching "Thinking...". */
+    const deadline = Date.now() + BUDGET_MS;
     let res, chat, lastErr = null;
     for (let i = Math.max(0, state.candidates.indexOf(state.modelName)); i < state.candidates.length; i++) {
+      if (Date.now() > deadline) break;
       state.modelName = state.candidates[i];
       state.model = state.build(state.modelName);
       chat = state.model.startChat({ history });
       try {
-        res = await chat.sendMessage(
-          'Shop summary (live):\n' + snapshot() + '\n\nStaff member asks: ' + text);
+        res = await withTimeout(chat.sendMessage(
+          'Shop summary (live):\n' + snapshot() + '\n\nStaff member asks: ' + text), 'a reply');
         lastErr = null;
         break;
       } catch (e) {
@@ -275,14 +297,23 @@ async function ask(history, text, handlers) {
         // Fall through on a refused name, and on a quota refusal too: the free tier
         // counts 20 requests a day PER MODEL, so the next name in the list is a fresh
         // allowance rather than the same wall.
+        if (/Timed out after/.test(e.message || '')) throw e;   // not a wrong name
         if (!isModelRefused(e) && !isQuota(e)) throw e;
       }
     }
     if (lastErr) throw lastErr;
 
     const actions = [];
-    // The model may want a function, then use its result to answer. Two rounds is
-    // plenty for this and bounds the cost of a turn.
+    const done = [];
+    /* The model may want a function, then use its result to phrase an answer. Two rounds
+       bounds the cost of a turn.
+
+       The second round is BEST EFFORT, and that matters. Some models reject the
+       function-response turn outright - gemini-3.6-flash answers
+       "[400] Role 'function' is not supported" - and losing the whole answer to that
+       would be absurd, because by then the work has already happened: the screen is
+       open, the draft is on screen. So a failed follow-up falls back to reporting what
+       was actually done rather than throwing it all away. */
     for (let round = 0; round < 2; round++) {
       const calls = (res.response.functionCalls && res.response.functionCalls()) || [];
       if (!calls.length) break;
@@ -292,9 +323,28 @@ async function ask(history, text, handlers) {
         let out = 'That is not something I can do here.';
         if (fn) { try { out = await fn(c.args) || 'Done.'; } catch (e) { out = 'Failed: ' + e.message; } }
         actions.push({ name: c.name, args: c.args });
+        done.push(out);
         replies.push({ functionResponse: { name: c.name, response: { result: out } } });
       }
-      res = await chat.sendMessage(replies);
+      try {
+        res = await withTimeout(chat.sendMessage(replies), 'the follow-up');
+      } catch (e) {
+        state.lastRaw = (e && e.message) || String(e);
+        /* Some models reject a function-response turn outright - gemini-3.6-flash says
+           "[400] Role 'function' is not supported". The results are still worth handing
+           back, so say the same thing as an ordinary user turn, which every model
+           accepts. Only if THAT fails do we fall back to reporting the bare outcomes. */
+        try {
+          res = await withTimeout(chat.sendMessage(
+            'Those actions are done. Results: ' +
+            actions.map((a, i) => a.name + ' -> ' + done[i]).join('; ') +
+            '. Tell the staff member briefly what is now in front of them. ' +
+            'Do not call another function.'), 'the follow-up');
+        } catch (e2) {
+          state.lastRaw = (e2 && e2.message) || String(e2);
+          return { ok: true, text: done.join(' '), actions, partial: true };
+        }
+      }
     }
     return { ok: true, text: res.response.text(), actions };
   } catch (e) {
