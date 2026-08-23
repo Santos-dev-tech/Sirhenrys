@@ -1,0 +1,74 @@
+rules_version = '2';
+
+// ---------------------------------------------------------------------------
+// Sir Henry's - Firestore rules
+//
+// Deploy:  firebase deploy --only firestore:rules
+// Test:    Firebase console -> Firestore -> Rules -> Rules Playground
+//
+// READ THIS BEFORE GOING LIVE.
+//
+// The rules below are the *demo* posture. They require a signed-in user, which
+// sync.js satisfies with anonymous auth, and they stop the obvious damage: no
+// deleting, no unbounded documents, no writing outside the known keys. What they
+// do NOT do is distinguish one anonymous visitor from another. Anyone who loads
+// the site gets an anonymous credential, so anyone who loads the site can write
+// to the shop's books.
+//
+// That is acceptable for a pitch running on demo data. It is NOT acceptable once
+// this holds real orders. The fix is small but it cannot be done from the client:
+//
+//   1. In the Firebase console, create real staff accounts (Auth -> Users), or
+//      enable a provider and invite them.
+//   2. Give each one a custom claim, e.g. { staff: true, role: 'manager' }.
+//      That needs the Admin SDK - a one-off script or a Cloud Function.
+//   3. Swap isSignedIn() for isStaff() on the write rules below, and split the
+//      customer-writable keys (orders placed from the storefront) from the
+//      staff-only ones (settings, adjustments, sales).
+//
+// Until step 3 is done, treat everything in this database as public.
+// ---------------------------------------------------------------------------
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Staff carry a custom claim set server-side; unused until the steps above are
+    // done, but written now so switching over is a one-word change per rule.
+    function isStaff() {
+      return isSignedIn() && request.auth.token.staff == true;
+    }
+
+    // The client stores each slice of shop state as a JSON string. Anything else
+    // is a bug or an attack, so the shape is pinned rather than trusted.
+    function wellFormed() {
+      return request.resource.data.keys().hasOnly(['json', 'at'])
+          && request.resource.data.json is string
+          && request.resource.data.json.size() < 900000;   // under the 1MB doc ceiling
+    }
+
+    // Exactly the keys data.js lists as SHARED. A new key means a deliberate edit
+    // here, not a silent new collection appearing in production.
+    function knownKey(key) {
+      return key in ['orders', 'appointments', 'commissions', 'groups', 'alterations',
+                     'corporate', 'sales', 'adjustments', 'settings'];
+    }
+
+    match /shops/{shop}/state/{key} {
+      allow read:   if isSignedIn();
+      allow create,
+            update: if isSignedIn() && knownKey(key) && wellFormed();
+      // Nothing in this app deletes shop state. Resetting the demo writes an empty
+      // value rather than removing the document, so delete stays shut.
+      allow delete: if false;
+    }
+
+    // Anything not matched above is denied. Do not add a catch-all.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

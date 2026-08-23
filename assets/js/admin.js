@@ -2,14 +2,23 @@
 (() => {
   'use strict';
   const { PRODUCTS, CATEGORIES, BRANCHES, STATUSES, byId, fmt, state } = SH;
-  const view = document.getElementById('view');
+  /* The console shares a document with the storefront now, so everything here is
+     addressed inside #ad. Nothing may touch document.body: this used to replace it
+     outright to draw the login gate, which in a merged page would delete the shop. */
+  const BASE = '/admin';
+  const AD = document.getElementById('ad');
+  // #view is replaced wholesale whenever the login gate tears the shell down and puts
+  // it back, so this is re-resolved at those two points rather than cached forever.
+  let view = AD.querySelector('#view');
+  const reshell = () => { AD.innerHTML = SHELL; AD.classList.remove('locked');
+                          view = AD.querySelector('#view'); };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const KSh = n => 'KSh ' + Math.round(n).toLocaleString('en-KE');
 
   let tT;
   function toast(m) {
     let n = document.querySelector('.notice');
-    if (!n) { n = document.createElement('div'); n.className = 'notice'; document.body.appendChild(n); }
+    if (!n) { n = document.createElement('div'); n.className = 'notice'; AD.appendChild(n); }
     n.textContent = m; n.classList.add('on');
     clearTimeout(tT); tT = setTimeout(() => n.classList.remove('on'), 2400);
   }
@@ -75,15 +84,15 @@
     sessionStorage.setItem(AUTH_KEY, JSON.stringify(safe));
     return safe;
   }
-  function signOut() { sessionStorage.removeItem(AUTH_KEY); location.reload(); }
+  function signOut() { sessionStorage.removeItem(AUTH_KEY); location.hash = '#/'; location.reload(); }
   const can = (view) => {
     const s = currentStaff();
     return !!s && (SH.ROLE_VIEWS[s.role] || []).includes(view);
   };
 
   function renderLogin() {
-    document.body.classList.add('locked');
-    document.body.innerHTML = `
+    AD.classList.add('locked');
+    AD.innerHTML = `
       <div class="login">
         <div class="login-card">
           <div class="login-mark">SIR HENRY'S<small>Staff Console</small></div>
@@ -107,18 +116,18 @@
     document.querySelectorAll('[data-staff]').forEach(b => b.onclick = () => {
       who = b.dataset.staff;
       document.querySelector('.login-list').classList.add('hide');
-      document.getElementById('pinForm').classList.remove('hide');
-      document.getElementById('pinWho').textContent = 'PIN for ' + SH.STAFF.find(s => s.id === who).name;
-      document.getElementById('pinInput').focus();
+      AD.querySelector('#pinForm').classList.remove('hide');
+      AD.querySelector('#pinWho').textContent = 'PIN for ' + SH.STAFF.find(s => s.id === who).name;
+      AD.querySelector('#pinInput').focus();
     });
-    document.getElementById('pinBack').onclick = () => location.reload();
-    document.getElementById('pinForm').onsubmit = e => {
+    AD.querySelector('#pinBack').onclick = () => { reshell(); renderLogin(); };
+    AD.querySelector('#pinForm').onsubmit = e => {
       e.preventDefault();
-      if (signIn(who, document.getElementById('pinInput').value)) location.reload();
+      if (signIn(who, AD.querySelector('#pinInput').value)) { reshell(); render(); }
       else {
-        document.getElementById('pinErr').classList.remove('hide');
-        document.getElementById('pinInput').value = '';
-        document.getElementById('pinInput').focus();
+        AD.querySelector('#pinErr').classList.remove('hide');
+        AD.querySelector('#pinInput').value = '';
+        AD.querySelector('#pinInput').focus();
       }
     };
   }
@@ -349,7 +358,7 @@
     save.textContent = 'Print';
     save.onclick = () => window.print();
     document.getElementById('dw').classList.add('on');
-    document.getElementById('scrim').classList.add('on');
+    AD.querySelector('#scrim').classList.add('on');
   }
 
   V.dashboard = () => {
@@ -359,7 +368,7 @@
     const pend = orders.filter(o => o.status !== 'Delivered').length;
     return `
     <div class="top"><div><h1>Dashboard</h1><p>${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
-      <a class="btn ghost" href="index.html" target="_blank">View storefront</a></div>
+      <a class="btn ghost" href="#/">View storefront</a></div>
 
     <div class="kpis">
       <div class="kpi"><div class="l">Revenue (7d)</div><div class="v">${KSh(last7().reduce((a, d) => a + d.v, 0))}</div><div class="d up">&uarr; 12.4% on last week</div></div>
@@ -384,7 +393,7 @@
         </div></div>
     </div>
 
-    <div class="panel"><div class="panel-hd"><b>Recent orders</b><a class="btn ghost sm" href="#/orders">All orders</a></div>
+    <div class="panel"><div class="panel-hd"><b>Recent orders</b><a class="btn ghost sm" href="#/admin/orders">All orders</a></div>
       <table><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Payment</th><th>Status</th><th class="num">Total</th></tr></thead>
       <tbody>${orders.slice(0, 6).map(o => `<tr data-order="${o.id}" style="cursor:pointer">
         <td><b>${o.id}</b><br><span style="font-size:11px;color:var(--ink-4)">${new Date(o.date).toLocaleDateString('en-GB')}</span></td>
@@ -399,8 +408,8 @@
     const list = f ? state.orders.filter(o => o.status === f) : state.orders;
     return `<div class="top"><div><h1>Orders</h1><p>${list.length} order${list.length === 1 ? '' : 's'}</p></div></div>
       <div class="panel"><div class="panel-hd"><div class="fbar">
-        <a class="chip ${!f ? 'on' : ''}" href="#/orders">All</a>
-        ${STATUSES.map(s => `<a class="chip ${f === s ? 'on' : ''}" href="#/orders?status=${encodeURIComponent(s)}">${s}</a>`).join('')}
+        <a class="chip ${!f ? 'on' : ''}" href="#/admin/orders">All</a>
+        ${STATUSES.map(s => `<a class="chip ${f === s ? 'on' : ''}" href="#/admin/orders?status=${encodeURIComponent(s)}">${s}</a>`).join('')}
       </div></div>
       ${list.length ? `<table><thead><tr><th>Order</th><th>Customer</th><th>Branch</th><th>Payment</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
       <tbody>${list.map(o => `<tr data-order="${o.id}" style="cursor:pointer">
@@ -439,8 +448,8 @@
       <p>${branch ? 'Stock at ' + esc(branch.name) : 'Stock across all four stores'} &mdash; the view Shopify makes you buy an app for.</p></div></div>
       <div class="panel"><div class="panel-hd">
         <div class="fbar">
-          <a class="chip ${!branch ? 'on' : ''}" href="#/inventory">All stores</a>
-          ${BRANCHES.map(b => `<a class="chip ${br === b.id ? 'on' : ''}" href="#/inventory?branch=${b.id}">${esc(b.name.split(',')[0])}</a>`).join('')}
+          <a class="chip ${!branch ? 'on' : ''}" href="#/admin/inventory">All stores</a>
+          ${BRANCHES.map(b => `<a class="chip ${br === b.id ? 'on' : ''}" href="#/admin/inventory?branch=${b.id}">${esc(b.name.split(',')[0])}</a>`).join('')}
         </div>
         <div class="fbar"><span class="pill ok">Healthy</span><span class="pill warn">Low</span><span class="pill bad">Out</span></div></div>
       <div class="fbar" style="margin:-8px 0 18px">
@@ -720,17 +729,24 @@
       toast('Status set to ' + o.status);
     });
     document.getElementById('dw').classList.add('on');
-    document.getElementById('scrim').classList.add('on');
+    AD.querySelector('#scrim').classList.add('on');
   }
-  const close = () => { document.querySelectorAll('.dw,.side').forEach(e => e.classList.remove('on')); document.getElementById('scrim').classList.remove('on'); };
+  const close = () => { document.querySelectorAll('.dw,.side').forEach(e => e.classList.remove('on')); AD.querySelector('#scrim').classList.remove('on'); };
 
   /* ---------- router ---------- */
+  // the console's own markup, kept so the login gate can be torn down and put back
+  const SHELL = AD.innerHTML;
+
   function render() {
+    const raw = location.hash.slice(1) || '';
+    if (!/^\/admin(\/|\?|$)/.test(raw)) { AD.hidden = true; return; }
+    AD.hidden = false;
+
     const staff = currentStaff();
     if (!staff) { renderLogin(); return; }
+    if (AD.classList.contains('locked')) reshell();
 
-    const raw = location.hash.slice(1) || '';
-    const [path, q] = raw.split('?');
+    const [path, q] = raw.slice(BASE.length).split('?');
     let key = path.split('/').filter(Boolean)[0] || '';
     const allowed = SH.ROLE_VIEWS[staff.role] || [];
     if (!key) key = allowed[0];                       // land somewhere this role can actually use
@@ -749,12 +765,12 @@
 
   // hide what this role cannot open, and show who is signed in
   function paintNav(staff, allowed, key) {
-    document.querySelectorAll('.side a[data-nav]').forEach(a => {
+    AD.querySelectorAll('.side a[data-nav]').forEach(a => {
       const ok = allowed.includes(a.dataset.nav);
       a.style.display = ok ? '' : 'none';
       a.classList.toggle('on', a.dataset.nav === key);
     });
-    document.querySelectorAll('.side h6').forEach(h => {
+    AD.querySelectorAll('.side h6').forEach(h => {
       let n = h.nextElementSibling, any = false;
       while (n && n.tagName === 'A') { if (n.style.display !== 'none') any = true; n = n.nextElementSibling; }
       h.style.display = any ? '' : 'none';
@@ -868,10 +884,10 @@
   document.addEventListener('click', e => {
     if (e.target.closest('[data-close]') || e.target.id === 'scrim') close();
     if (e.target.closest('[data-mtoggle]')) {
-      document.querySelector('.side').classList.toggle('on');
-      document.getElementById('scrim').classList.toggle('on');
+      AD.querySelector('.side').classList.toggle('on');
+      AD.querySelector('#scrim').classList.toggle('on');
     }
-    if (e.target.closest('.side a')) document.querySelector('.side').classList.remove('on');
+    if (e.target.closest('.side a')) AD.querySelector('.side').classList.remove('on');
   });
 
   window.addEventListener('hashchange', render);

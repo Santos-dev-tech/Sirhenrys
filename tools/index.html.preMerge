@@ -9,14 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="assets/css/site.css">
-<!-- scoped under .ad, so it cannot reach the storefront - see the head of the file -->
-<link rel="stylesheet" href="assets/css/admin.css">
 </head>
 <body>
-<!-- One document, two apps. #shop is the storefront; #ad is the staff console at
-     #/admin. Each router hides the other's subtree, so only one is ever in the
-     accessibility tree or taking clicks. -->
-<div id="shop">
 <div id="progress"></div>
 <div id="veil"></div>
 
@@ -119,7 +113,7 @@
         <li><a href="#/contact">Careers</a></li></ul></div>
       <div><h4>Visit</h4><ul>
         <li><a href="#/stores">Our Stores</a></li><li><a href="#/about">About Us</a></li>
-        <li><a href="#/contact">Contact</a></li><li><a href="#/admin">Staff Login</a></li></ul></div>
+        <li><a href="#/contact">Contact</a></li><li><a href="admin.html">Staff Login</a></li></ul></div>
     </div>
     <div class="ftr-bot">
       <span>&copy; 2026 Sir Henry's Limited. Nairobi, Kenya. Tel (+254) 713 619786.</span>
@@ -186,69 +180,12 @@
   <a href="#/about">About</a>
   <a href="#/contact">Contact</a>
 </nav>
-</div><!-- /#shop -->
-
-<div id="ad" class="ad" hidden>
-<div class="shell">
-  <aside class="side">
-    <div class="logo">SIR HENRY'S<small>Staff Console</small></div>
-    <nav>
-      <h6>Overview</h6>
-      <a href="#/admin/dashboard" data-nav="dashboard"><svg viewBox="0 0 24 24"><path d="M3 12h6v9H3zM9 3h6v18H9zM15 8h6v13h-6z"/></svg>Dashboard</a>
-      <a href="#/admin/analytics" data-nav="analytics"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>Analytics</a>
-
-      <h6>Selling</h6>
-      <a href="#/admin/pos" data-nav="pos"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="1"/><path d="M3 9h18M7 21h10"/></svg>Till (POS)</a>
-      <a href="#/admin/orders" data-nav="orders"><svg viewBox="0 0 24 24"><path d="M6 7h12l1.2 13H4.8zM9 7V5.5a3 3 0 016 0V7"/></svg>Orders</a>
-      <a href="#/admin/products" data-nav="products"><svg viewBox="0 0 24 24"><path d="M20.6 7.3L12 2 3.4 7.3 12 12.6zM3.4 7.3v9.4L12 22V12.6M20.6 7.3v9.4L12 22"/></svg>Products</a>
-      <a href="#/admin/inventory" data-nav="inventory"><svg viewBox="0 0 24 24"><path d="M3 4h18v5H3zM3 9v11h18V9M9 13h6"/></svg>Inventory</a>
-      <a href="#/admin/customers" data-nav="customers"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0113 0M16 5.2a3.2 3.2 0 010 5.6M18 20a6.5 6.5 0 00-3-5.4"/></svg>Customers</a>
-
-      <h6>Atelier</h6>
-      <a href="#/admin/fittings" data-nav="fittings"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Fittings</a>
-      <a href="#/admin/alterations" data-nav="alterations"><svg viewBox="0 0 24 24"><path d="M6 3v12M18 3v12M6 15a3 3 0 106 0M12 15a3 3 0 106 0"/></svg>Alterations</a>
-      <a href="#/admin/commissions" data-nav="commissions"><svg viewBox="0 0 24 24"><path d="M6 3v12M18 3v12M6 15a3 3 0 106 0M12 15a3 3 0 106 0"/></svg>Made to Measure</a>
-      <a href="#/admin/groups" data-nav="groups"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0113 0M16 5.2a3.2 3.2 0 010 5.6M18 20a6.5 6.5 0 00-3-5.4"/></svg>Weddings &amp; Groups</a>
-
-      <a href="#/admin/corporate" data-nav="corporate"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>Corporate &amp; Bulk</a>
-
-      <h6>Configure</h6>
-      <a href="#/admin/settings" data-nav="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</a>
-      <div id="whoami" class="whoami"></div>
-      <div class="back">
-        <a href="#/"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Back to storefront</a>
-      </div>
-    </nav>
-  </aside>
-
-  <main class="main">
-    <button class="btn ghost sm mtoggle" data-mtoggle style="margin-bottom:16px">Menu</button>
-    <div id="view"></div>
-  </main>
-</div>
-
-<div class="scrim" id="scrim"></div>
-<aside class="dw" id="dw" aria-label="Order detail">
-  <div class="dw-hd"><b id="dwTitle">Order</b><button class="x" data-close aria-label="Close">&times;</button></div>
-  <div class="dw-bd" id="dwBody"></div>
-  <div class="dw-ft"><button class="btn" id="dwSave">Save changes</button>
-    <button class="btn ghost" data-close>Close</button></div>
-</aside>
-</div><!-- /#ad -->
 
 <script src="assets/js/vendor/lenis.min.js"></script>
 <script src="assets/js/vendor/three.min.js"></script>
 <script src="assets/js/motion.js"></script>
-<!-- Firebase, vendored rather than pulled off a CDN, the same as lenis and three.
-     If these three fail to load the app still runs: sync.js degrades to localStorage. -->
-<script src="assets/js/vendor/firebase-app-compat.js"></script>
-<script src="assets/js/vendor/firebase-auth-compat.js"></script>
-<script src="assets/js/vendor/firebase-firestore-compat.js"></script>
-<script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/data.js"></script>
-<script src="assets/js/sync.js"></script>
 <script src="assets/js/app.js"></script>
-<script src="assets/js/admin.js"></script>
-<script>Motion.boot(); SHSync.start();</script>
+<script>Motion.boot();</script>
 </body>
 </html>

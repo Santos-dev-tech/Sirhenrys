@@ -17,7 +17,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 140)); });
 
   const R = {};
-  await page.goto(BASE + '/admin.html', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(BASE + '/index.html#/admin', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await sleep(1500);
 
   // ---- 1. auth gate
@@ -33,19 +33,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await sleep(1800);
 
   R.floor = await page.evaluate(() => {
-    const vis = [...document.querySelectorAll('.side a[data-nav]')]
+    const vis = [...document.querySelectorAll('#ad .side a[data-nav]')]
       .filter(a => a.style.display !== 'none').map(a => a.dataset.nav);
     return { signedInAs: (document.querySelector('#whoami b') || {}).textContent, visibleNav: vis };
   });
   // a shop-floor account must not be able to open settings
-  await page.evaluate(() => { location.hash = '#/settings'; });
+  await page.evaluate(() => { location.hash = '#/admin/settings'; });
   await sleep(700);
   R.floorBlockedFromSettings = await page.evaluate(() =>
     /does not have access/i.test(document.getElementById('view').textContent));
 
   // ---- 3. sign out, sign in as owner
   await page.evaluate(() => sessionStorage.clear());
-  await page.goto(BASE + '/admin.html', { waitUntil: 'domcontentloaded' });
+  await page.goto(BASE + '/index.html#/admin', { waitUntil: 'domcontentloaded' });
   await sleep(1200);
   await page.evaluate(() => document.querySelector('[data-staff="ha"]').click());
   await sleep(200);
@@ -53,7 +53,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await page.evaluate(() => document.getElementById('pinForm')
     .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
   await sleep(1800);
-  R.ownerNav = await page.evaluate(() => [...document.querySelectorAll('.side a[data-nav]')]
+  R.ownerNav = await page.evaluate(() => [...document.querySelectorAll('#ad .side a[data-nav]')]
     .filter(a => a.style.display !== 'none').map(a => a.dataset.nav));
 
   // ---- 4. wrong PIN is rejected
@@ -67,7 +67,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   });
 
   // ---- 5. POS: scan a barcode, sell it, confirm stock drops at that branch only
-  await page.evaluate(() => { location.hash = '#/pos'; });
+  await page.evaluate(() => { location.hash = '#/admin/pos'; });
   await sleep(1200);
   R.pos = await page.evaluate(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -114,7 +114,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   });
 
   // ---- 6. alterations pipeline
-  await page.evaluate(() => { location.hash = '#/alterations'; });
+  await page.evaluate(() => { location.hash = '#/admin/alterations'; });
   await sleep(1000);
   R.alterations = await page.evaluate(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -128,7 +128,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   });
 
   // ---- 7. corporate pipeline
-  await page.evaluate(() => { location.hash = '#/corporate'; });
+  await page.evaluate(() => { location.hash = '#/admin/corporate'; });
   await sleep(900);
   R.corporate = await page.evaluate(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -141,7 +141,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   });
 
   // ---- 8. barcodes render
-  await page.evaluate(() => { location.hash = '#/inventory'; });
+  await page.evaluate(() => { location.hash = '#/admin/inventory'; });
   await sleep(900);
   R.barcodes = await page.evaluate(() => {
     let bad = 0, n = 0;

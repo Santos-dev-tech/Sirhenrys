@@ -217,3 +217,60 @@ and one per-pixel alpha composite.
 Only **one** garment has eight photographed angles. The other twelve in the room are flat
 plates and stay flat rather than fake it. Turning all of them is a credit problem, not a
 code one — see the note in `README.md`.
+
+
+## 12. One app, and a backend behind it  `[x]`
+
+Storefront and staff console were two pages sharing a `localStorage` key. They are now one
+document with a real database behind them, so there is a single thing to deploy.
+
+### The merge
+- [x] `index.html` carries both: `#shop` and `#ad`, each router hiding the other's subtree
+- [x] The console is at **`#/admin`**; `admin.html` is now just a redirect for old bookmarks
+- [x] Entering `#/admin` unmounts the WebGL rail and stops Lenis — leaving them running
+      behind a till screen would burn GPU and hijack the wheel
+- [x] `tools/bundle.py` builds **one** file instead of four
+
+**The problem worth recording** was CSS, not routing. Measured before touching anything: the
+two stylesheets shared **36 identical selectors** and **16 class names**, and `admin.css`
+carried **22 rules on bare elements** — including `:root`, `body` and `*`. Concatenated, each
+would have rewritten the other. So every rule in `admin.css` is now scoped under `.ad`, with
+`:root` and `body` both becoming `.ad` so the console's palette cascades over its own subtree
+and nowhere else. `@media print` deliberately stays global: printing a receipt has to hide the
+storefront behind it too.
+
+Two bugs found doing it, both by running the thing rather than reading it:
+- The `@import` strip matched `@import[^;]+;` — and the font URL contains semicolons
+  (`wght@300;400;…`), so it cut mid-URL and left `400;500;…swap');` as a stray selector.
+  Matching `url(...)` to its closing paren fixed it.
+- `renderLogin()` did `document.body.innerHTML = …`. In a merged page that deletes the shop.
+
+### The backend
+- [x] Firestore at `shops/<shop>/state/<key>`, one document per shared key
+- [x] **Shared vs per-device is a deliberate split.** Orders, adjustments, alterations,
+      corporate, fittings, commissions, groups and settings sync. Carts, wishlists,
+      recently-viewed and the signed-in till user do **not** — sharing them would put one
+      customer's basket on another customer's phone and sign the POS in at four branches
+      at once
+- [x] Values are stored as JSON strings: the state nests arrays inside arrays (an order has
+      items, an alteration has a log), which Firestore rejects natively
+- [x] Offline persistence on, so the till keeps selling through an outage and reconciles after
+- [x] Writes are debounced 400ms and diffed against last-known-remote, so a save that touched
+      only the cart writes nothing
+- [x] `hasPendingWrites` snapshots are skipped, and an `applying` flag stops a remote change
+      echoing back out as a write — without it the two loop forever
+- [x] **Everything degrades.** SDK missing, project misconfigured, or `enabled:false` in
+      `firebase-config.js` → the app runs on `localStorage` exactly as before
+- [x] `firestore.rules` written, with the three steps to real staff accounts in its header
+
+**Verified** by `tools/mergetest.js`: both subtrees present, each hides the other, the console
+signs in and routes (`#/admin/inventory` → Inventory), 114 product cards still render on
+return, and `.btn` padding stays `14px 30px` (site.css) rather than `10px 18px` (admin.css) —
+which is the assertion that the console's stylesheet is not leaking. `admintest.js` and
+`storetest.js` both pass unchanged in behaviour against the merged app.
+
+### Blocked on one console setting
+Anonymous sign-in is **not enabled** on the Firebase project, so auth returns
+`auth/admin-restricted-operation` and sync stays off — the app is running on `localStorage`.
+Firebase console → Authentication → Sign-in method → Anonymous → Enable. Nothing in the code
+changes; sync comes up on the next load.

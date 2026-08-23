@@ -717,8 +717,23 @@
     <p>That page does not exist.</p><a class="btn" href="#/">Back home</a></div>`;
 
   /* ---------- router ---------- */
+  const shop = document.getElementById('shop');
+
   function render() {
     const raw = location.hash.slice(1) || '/';
+
+    /* #/admin belongs to the console, which lives in the same document. Yield the
+       whole storefront subtree rather than just hiding a view: leaving it mounted
+       would keep the WebGL rail rendering and Lenis hijacking the wheel behind a
+       till screen. */
+    if (/^\/admin(\/|\?|$)/.test(raw)) {
+      if (shop) shop.hidden = true;
+      if (window.Motion) { Motion.unmountRail(); Motion.unmountAnatomy(); Motion.stopScroll(); }
+      document.title = "Sir Henry's — Staff Console";
+      return;
+    }
+    if (shop && shop.hidden) { shop.hidden = false; if (window.Motion) Motion.startScroll(); }
+
     const [path, query] = raw.split('?');
     const seg = path.split('/').filter(Boolean);
     let html;

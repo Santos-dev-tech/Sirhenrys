@@ -3,7 +3,10 @@
 A storefront and staff console for Sir Henry's Limited (Nairobi, est. 1967), built as a
 pitch against their current Shopify site at `sirhenrys.co.ke`.
 
-No build step, no framework, no backend. Open `index.html` and it runs.
+No build step and no framework. One file to deploy: `index.html` carries the storefront
+**and** the staff console, and Firestore keeps them in step across devices. Open it and it
+runs; if the backend is unreachable or switched off it falls back to `localStorage` and
+behaves exactly as it did before there was one.
 
 ---
 
@@ -60,7 +63,7 @@ and its baked floor shadow floating in the page. Drag it sideways.
 | `#/order/:id` | Order tracking with a five-stage workshop timeline |
 | `#/account` `#/wishlist` `#/stores` `#/about` `#/contact` | Supporting pages |
 
-## Staff console (`admin.html`)
+## Staff console (`#/admin`)
 
 Dashboard with suggested inter-branch transfers, analytics, orders with editable status and
 workshop notes, products with inline price editing, a per-store inventory matrix, customers
@@ -93,14 +96,17 @@ These are the parts worth demoing, because the current site can't do them:
 ## Layout
 
 ```
-index.html           storefront shell
-admin.html           staff console shell
-assets/css/          site.css, admin.css
+index.html           the whole app: storefront shell + staff console shell
+admin.html           a redirect into index.html#/admin, for old bookmarks
+firestore.rules      security rules - READ THE HEADER BEFORE GOING LIVE
+assets/css/          site.css (global), admin.css (scoped under .ad)
+assets/js/firebase-config.js  the one file to edit for a different Firebase project
+assets/js/sync.js    Firestore sync, degrades to localStorage
 assets/js/data.js    catalogue, stock model, cart, orders, persistence
 assets/js/app.js     storefront router + views
 assets/js/motion.js  Lenis, the WebGL room, scroll reveals, the anatomy camera
 assets/js/admin.js   console router + views
-assets/js/vendor/    lenis.min.js, three.min.js (both MIT, vendored - no CDN)
+assets/js/vendor/    lenis.min.js, three.min.js, firebase-*-compat.js (all vendored - no CDN)
 assets/img/          43 campaign plates at full resolution (1536px)
 assets/img/card/     760px variants for grid cards and admin thumbnails
 assets/seq/          97 frames of the dressing sequence
@@ -110,7 +116,7 @@ tools/shoot.js       headless screenshot + health harness (needs puppeteer-core)
 tools/seqtest.js     proves the sequence runs forward and reverse, and that the camera moves
 tools/anattest.js    measures the anatomy layout at 1440x900: stage vs panel, copy vs panel
 tools/anatshot.js    renders the anatomy section at five scroll marks, desktop or phone
-tools/bundle.py      inlines everything into one portable .html
+tools/bundle.py      inlines everything into one portable .html (Firebase stripped)
 tools/gen.ps1        image generation runner (Higgsfield CLI)
 tools/admintest.js   headless test: auth, roles, POS sale, alterations, corporate
 tools/storetest.js   headless test: M-Pesa flow, WhatsApp links, corporate quote, live stock
@@ -122,15 +128,23 @@ MPESA-GOING-LIVE.md  what still needs a server before real payments
 product page, the WebGL room and the editorial bands; 760px variants go to grid cards and
 admin thumbnails. Serving 1536px into a 400px card cost roughly 17 MB on the shop page.
 
-**State** lives in `localStorage` under `sirhenrys.v1`, shared between storefront and console
-— place an order on one and it appears in the other. Reset from **Settings → Reset demo data**.
+**State** is split. Orders, stock adjustments, alterations, corporate enquiries, fittings,
+commissions, groups and settings are **shared** — they live in Firestore at
+`shops/sirhenrys/state/*` and sync to every device, so a sale rung up on the till at Kimathi
+Street drops the stock on a phone in Westgate. Carts, wishlists, recently-viewed and which
+staff member is signed in at this till are **per-device** and stay in `localStorage`; sharing
+them would put one customer's basket on another customer's phone. `localStorage` also holds a
+full copy as the offline cache. Reset from **Settings → Reset demo data**.
 
 ---
 
 ## Honest limitations
 
-- **Front-end prototype.** No server, so orders, stock and accounts live in the browser and
-  reset when you clear storage. Nothing is shared between devices.
+- **The rules are demo-grade.** Firestore now syncs the shop's books between devices, but
+  `firestore.rules` currently only requires *a* signed-in user, and `sync.js` signs everyone
+  in anonymously. That stops casual damage; it does not stop a determined visitor writing to
+  the books. The header of `firestore.rules` sets out the three steps to real staff accounts.
+  Until those are done, treat the database as public.
 - **M-Pesa is simulated.** The request body is Daraja's real shape and Safaricom's real result
   codes are handled, but nothing is sent — the credentials cannot live in a browser.
   `MPESA-GOING-LIVE.md` sets out exactly what server work remains.

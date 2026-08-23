@@ -247,8 +247,36 @@ const SH = (() => {
   try { state = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); }
   catch (e) { state = blank(); }
 
+  /* Not everything in state belongs to the shop. An order, a stock adjustment or an
+     alteration job is the same fact on every device and has to sync; a cart, a wishlist
+     or which staff member is signed in at this till is local to the machine and must not.
+     Sharing the second group would mean one customer's basket appearing on another
+     customer's phone, and the POS signing itself in at four branches at once. */
+  const SHARED = ['orders', 'appointments', 'commissions', 'groups', 'alterations',
+                  'corporate', 'sales', 'adjustments', 'settings'];
+  const DEVICE = ['cart', 'wishlist', 'customer', 'recent', 'staff'];
+
+  let applying = false;          // true while a remote snapshot is being folded in
+  const hooks = [];              // a sync layer registers here; none is required
+
+  // localStorage keeps everything, shared or not: it is the offline cache and the
+  // fallback when no backend is configured, so the site still runs off a file.
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
-  const emit = () => { save(); window.dispatchEvent(new CustomEvent('sh:change')); };
+  const emit = () => {
+    save();
+    if (!applying) hooks.forEach(h => { try { h(state, SHARED); } catch (e) {} });
+    window.dispatchEvent(new CustomEvent('sh:change'));
+  };
+  // A sync layer folds a remote change in through here. The applying flag is what stops
+  // a snapshot echoing straight back out as a write, which would loop forever.
+  const applyRemote = (patch) => {
+    applying = true;
+    try {
+      Object.keys(patch).forEach(k => { if (SHARED.includes(k)) state[k] = patch[k]; });
+      emit();
+    } finally { applying = false; }
+  };
+  const onChange = fn => { hooks.push(fn); };
 
   /* ---------- cart ---------- */
   const cart = {
@@ -440,6 +468,7 @@ const SH = (() => {
 
   return { BRANCHES, CATEGORIES, PRODUCTS, STATUSES, STAFF, ROLE_VIEWS, ALT_STAGES,
            byId, fmt, state, save, emit,
+           SHARED, DEVICE, applyRemote, onChange,
            cart, wishlist, placeOrder, bookAppointment, addCommission, markRecent,
            addGroup, groupDiscount, search,
            skuFor, barcodeFor, checkEan13, lookupCode,

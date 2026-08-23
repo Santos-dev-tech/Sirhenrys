@@ -65,8 +65,22 @@ def read(rel):
 
 
 def main():
-    which = (sys.argv[1] if len(sys.argv) > 1 else 'index').replace('.html', '')
-    html = read(which + '.html')
+    # There is one app now: index.html carries the storefront and the staff console,
+    # and admin.html is only a redirect into it. The old 'admin' target is gone.
+    if len(sys.argv) > 1 and sys.argv[1].replace('.html', '') == 'admin':
+        print('There is no separate admin bundle any more - the console is a route at '
+              '#/admin inside the single file. Run: python tools/bundle.py')
+        return
+    html = read('index.html')
+
+    # 0. Firebase comes out of the portable build, and it has to come out HERE - before
+    # step 2 inlines every <script src>, or the SDK is already embedded and removing the
+    # tag achieves nothing. A file:// page has no authorised origin, so the SDK could
+    # only ever fail; sync.js is built to degrade, which is what switching it off does,
+    # minus half a megabyte that cannot run.
+    html = re.sub(r'<script src="assets/js/vendor/firebase-[^"]+"></script>\s*', '', html)
+    html = html.replace('  enabled: true,', '  enabled: false,   // portable build: no backend')
+    html = html.replace('SHSync.start();', '/* no backend in the portable build */')
 
     # 1. inline stylesheets
     def css_sub(m):
@@ -178,14 +192,16 @@ document.querySelectorAll('img[data-img]').forEach(function(i){ i.src = window._
     # NB: static <img src> tags in the shell markup are handled by the resolver above.
     # Inlining them here as well would embed those images twice and roughly double the file.
 
-    # the console links back to the storefront and vice versa; those become dead in a
-    # single file, so make them explain themselves rather than 404.
-    other = 'admin.html' if which == 'index' else 'index.html'
-    html = html.replace('href="%s"' % other,
-                        'href="#" onclick="alert(\'The %s is a separate file in the full project.\');return false"'
-                        % ('staff console' if which == 'index' else 'storefront'))
+    # The cross-file links are gone: the console is a route in this same document, so
+    # href="#/admin" and href="#/" both work inside the bundle with no rewriting.
 
-    out = os.path.join(ROOT, '..', 'SirHenrys-%s-%s.html' % (which, 'lite' if LEAN else 'standalone'))
+    # The boot line no longer calls SHSync.start(), so this flag is already inert - but
+    # leaving it reading "true" in a build with no SDK would mislead anyone reading the
+    # file. It is flipped here, after inlining, because it lives in firebase-config.js
+    # rather than in index.html.
+    html = html.replace('  enabled: true,', '  enabled: false,  // portable build: no backend')
+
+    out = os.path.join(ROOT, '..', 'SirHenrys-%s.html' % ('lite' if LEAN else 'standalone'))
     with open(out, 'w', encoding='utf-8') as f:
         f.write(html)
     print('%s  ->  %.1f MB' % (os.path.normpath(out), os.path.getsize(out) / 1e6))
