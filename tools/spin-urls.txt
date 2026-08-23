@@ -7,3 +7,6 @@ flash-test https://d8j0ntlcm91z4.cloudfront.net/user_3IJeeaznBjSq1jFhnYZNY6WMHzl
 180 https://d8j0ntlcm91z4.cloudfront.net/user_3IJeeaznBjSq1jFhnYZNY6WMHzl/hf_20260823_124013_b46c9fba-7da7-4037-a875-f95817719776.png
 270 https://d8j0ntlcm91z4.cloudfront.net/user_3IJeeaznBjSq1jFhnYZNY6WMHzl/hf_20260823_124129_d229c634-1aaa-4746-96cc-2e85a799adef.png
 090 https://d8j0ntlcm91z4.cloudfront.net/user_3IJeeaznBjSq1jFhnYZNY6WMHzl/hf_20260823_124206_72c30083-bb32-4066-977b-62c521d79db0.png
+turntable-carlo-navy job Error: {"error_type":"job_minimum_basic_plan_required"}
+turntable-carlo-navy job 139822b2-ab6d-454d-a7de-96006a9abb77
+turntable-carlo-navy https://d8j0ntlcm91z4.cloudfront.net/user_3IK2G1ErENMn3Ymo3rEhmsWjXgc/hf_20260823_153622_139822b2-ab6d-454d-a7de-96006a9abb77.mp4

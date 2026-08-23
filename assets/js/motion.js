@@ -241,7 +241,7 @@ window.Motion = (() => {
     } catch (e) { return null; }   // tainted canvas (cross-origin): keep the default
   }
 
-  const RAIL_SPIN_RATE = 8 / 10;      // angles per second: a full turn every ~10s
+  const RAIL_TURN_SECONDS = 12;       // one revolution on the rail, at any frame count
 
   class Rail {
     constructor(canvas, items, opts = {}) {
@@ -375,7 +375,10 @@ window.Motion = (() => {
       // focus fade) mid-transition on slower frames, so the centred garment stayed washed out.
       const dt = this._last ? Math.min(0.05, (now - this._last) / 1000) : 0.016;
       this._last = now;
-      if (!reduced) this._spin = (this._spin || 0) + RAIL_SPIN_RATE * dt;
+      // rate is per revolution, so a 24-frame subsample turns at the same speed as 72
+      const spun = this.meshes.find(m => m.userData.spinTex && m.userData.spinTex.length);
+      if (!reduced && spun) this._spin = (this._spin || 0) +
+        (spun.userData.spinTex.length / RAIL_TURN_SECONDS) * dt;
       const k = 1 - Math.exp(-6.5 * dt);
       this.current += (this.target - this.current) * k;
       this.vel = this.target - this.current;
@@ -557,15 +560,15 @@ window.Motion = (() => {
   }
 
   /* ---------------------------------------------------------- 360 spinner
-     Eight photographed angles, turning on their own. Two things make eight stills read
-     as rotation rather than as a slideshow: the position is a float, and adjacent angles
-     are crossfaded by its fraction, so the step between 45-degree plates becomes a
-     dissolve. It idles at roughly one turn every fourteen seconds - slow enough to read
-     as display, not as animation - and hands control over the moment you touch it,
-     resuming a few seconds after you let go.
+     A frame sequence of the garment turning on the spot, played on a loop. It idles at
+     one revolution every fourteen seconds - slow enough to read as display rather than
+     animation - and hands control over the moment you touch it, resuming a few seconds
+     after you let go. The frames come from an eight-second video of the man turning
+     once, sampled to 72: the fix for "it doesn't look like it's spinning" was never in
+     this code, it was having enough frames.
      Same frame-swap engine as the dressing sequence, so nothing depends on video seeking. */
   let spinners = [];
-  const SPIN_IDLE_RATE = 0.56;      // frames per second: 8 frames -> a turn every ~14.3s
+  const SPIN_TURN_SECONDS = 14;     // one full revolution, whatever the frame count
   const SPIN_RESUME_MS = 2600;      // how long a drag suppresses the idle turn
 
   function mountSpinners(root = document) {
@@ -581,29 +584,24 @@ window.Motion = (() => {
 
       frames.forEach(f => { if (f.decode) f.decode().catch(() => {}); });
 
-      // paint a fractional position by crossfading the two angles either side of it
+      // show exactly one frame - no blending, because there is nothing left to blend
+      // across. The old crossfade existed to hide the 45-degree step between eight
+      // stills and could not: dissolving two poses that far apart shows two overlapping
+      // people, which is what made it unreadable. Five degrees apart, there is no step.
       const render = () => {
-        const wrapped = ((pos % N) + N) % N;
-        const i0 = Math.floor(wrapped), frac = wrapped - i0;
-        const i1 = (i0 + 1) % N;
-        for (let i = 0; i < N; i++) {
-          const a = i === i0 ? 1 - frac : (i === i1 ? frac : 0);
-          if (frames[i]._a !== a) { frames[i].style.opacity = a; frames[i]._a = a; }
-        }
-        // .on still marks the nearest angle, which is what the harness reads
-        const near = frac < 0.5 ? i0 : i1;
-        if (near !== shown) {
-          if (shown >= 0) frames[shown].classList.remove('on');
-          frames[near].classList.add('on');
-          shown = near;
-          if (label) label.textContent = Math.round(near * (360 / N)) + '\u00B0';
-        }
+        const i = ((Math.round(pos) % N) + N) % N;
+        if (i === shown) return;
+        if (shown >= 0) { frames[shown].style.opacity = 0; frames[shown].classList.remove('on'); }
+        frames[i].style.opacity = 1;
+        frames[i].classList.add('on');
+        shown = i;
+        if (label) label.textContent = Math.round(i * (360 / N)) + '°';
       };
 
       const loop = (now) => {
         const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
         last = now;
-        if (!dragging && !reduced && now > idleAt) target += SPIN_IDLE_RATE * dt;
+        if (!dragging && !reduced && now > idleAt) target += (N / SPIN_TURN_SECONDS) * dt;
         // ease toward the target so a flick glides instead of snapping
         pos += (target - pos) * (1 - Math.exp(-9 * dt));
         render();
@@ -632,7 +630,7 @@ window.Motion = (() => {
         const dx = x - startX;
         moved = Math.max(moved, Math.abs(dx));
         // a full drag across the box turns the garment right round
-        target = startT + (dx / box.clientWidth) * N * 1.35;
+        target = startT + (dx / box.clientWidth) * N * 1.1;   // ~one turn per box width
         if (e.cancelable) e.preventDefault();
       };
       const up = () => {

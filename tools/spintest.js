@@ -1,5 +1,10 @@
-/* Confirms the 360 viewer loads every angle, turns on its own, crossfades between
-   adjacent angles, and still rotates in both directions when dragged. */
+/* Confirms the 360 viewer loads its whole frame sequence, turns on its own, shows
+   exactly ONE frame at a time, and still rotates both ways when dragged.
+
+   The single-frame assertion is the important one. The previous build crossfaded
+   adjacent frames to disguise a 45-degree step, which put two poses on screen at once
+   and read as a double exposure rather than a turn. With a dense sequence there is no
+   step to disguise, and any overlap is a regression. */
 const puppeteer = require('puppeteer-core');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -46,7 +51,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const idle = [], partials = [];
     for (let i = 0; i < 12; i++) {
       idle.push(posNow());
-      partials.push(fr.filter(f => { const a = +(f.style.opacity || 0); return a > 0.02 && a < 0.98; }).length);
+      partials.push(fr.filter(f => +(f.style.opacity || 0) > 0.02).length);
       await wait(700);
     }
     let advance = 0;
@@ -58,7 +63,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     }
     const anglesAdvanced = +advance.toFixed(2);
     const idleAdvanced = advance > 0.5;
-    const crossfades = partials.some(n => n === 2);
+    // exactly one frame lit at every sample - no ghosting
+    const maxVisible = Math.max(...partials);
+    const singleFrameOnly = maxVisible === 1;
 
     // Drag distances must not be near a whole number of turns. A full box width is
     // N*1.35 = 10.8 frames, so 0.8 of it is 8.64 - a complete revolution plus a fraction,
@@ -70,7 +77,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       present:true, frames:fr.length,
       loaded: fr.filter(f=>f.complete && f.naturalWidth>0).length,
       srcs: fr.map(f=>(f.currentSrc||f.src).split('/').pop()),
-      idleWalk: idle.map(v => v == null ? null : +v.toFixed(2)), anglesAdvanced, idleAdvanced, crossfades,
+      idleWalk: idle.map(v => v == null ? null : +v.toFixed(2)), anglesAdvanced, idleAdvanced, singleFrameOnly, maxVisible,
       start, afterDragRight:right, afterDragLeft:left,
       rotatesRight: right!==start, rotatesLeft: left!==right,
       degLabel: (box.querySelector('[data-spin-deg]')||{}).textContent

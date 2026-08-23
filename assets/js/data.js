@@ -154,20 +154,27 @@ const SH = (() => {
      else falls back to the flat gallery, so the page never shows an empty spinner. */
   // Eight photographed positions, 45 degrees apart. The viewer interpolates nothing -
   // every frame shown is a real generation, which is why the count is what it is.
-  /* Angles are per garment, not global. carlo-navy has the full eight; charcoal-db has
-     four, because a turnaround costs real credits per angle and four still reads as a
-     turn once adjacent frames are crossfaded. The viewer derives its degree labels from
-     the length of the set, so any count works - what it cannot survive is a garment
-     claiming angles whose files do not exist. */
-  const SPIN_SETS = {
-    'carlo-navy':  [0, 45, 90, 135, 180, 225, 270, 315],
-    'charcoal-db': [0, 90, 180, 270]
-  };
-  const SPIN_ANGLES = SPIN_SETS['carlo-navy'];          // kept for anything still asking
+  /* A turnaround is a frame sequence, not a handful of angles.
+     Eight stills 45 degrees apart do not read as rotation however they are blended:
+     crossfading two poses that far apart overlays two people, and cutting between them
+     is a slideshow. The fix was never in the code - it was more frames. These come from
+     an eight-second video of the man turning once on the spot, sampled to 72 frames,
+     which is five degrees apart and genuinely smooth.
+
+     The number is the frame count; files live at assets/spin/<slug>/fNNN.jpg. Pass a
+     cap to spinFrames when the caller cannot afford the whole set - the WebGL room
+     holds every frame as a live GPU texture, so it takes a subsample. */
+  const SPIN_SETS = { 'carlo-navy': 72 };
   const hasSpin = slug => !!SPIN_SETS[slug];
-  const spinAngles = slug => SPIN_SETS[slug] || [];
-  const spinFrames = slug => spinAngles(slug).map(a =>
-    'assets/img/spin-' + slug + '-' + String(a).padStart(3, '0') + '.jpg');
+  const spinCount = slug => SPIN_SETS[slug] || 0;
+  const spinFrames = (slug, max) => {
+    const n = spinCount(slug);
+    if (!n) return [];
+    const take = (max && max < n) ? max : n;
+    const step = n / take;
+    return Array.from({ length: take }, (_, i) =>
+      'assets/spin/' + slug + '/f' + String(Math.round(i * step) % n).padStart(3, '0') + '.jpg');
+  };
 
   const byId = s => PRODUCTS.find(p => p.slug === s);
   const fmt = n => 'KSh ' + Number(n).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -481,7 +488,7 @@ const SH = (() => {
            cart, wishlist, placeOrder, bookAppointment, addCommission, markRecent,
            addGroup, groupDiscount, search,
            skuFor, barcodeFor, checkEan13, lookupCode,
-           SPIN_ANGLES, SPIN_SETS, spinAngles, hasSpin, spinFrames,
+           SPIN_SETS, spinCount, hasSpin, spinFrames,
            stockAt, adjustStock, branchTotal, allStock,
            mpesaStkPush, mpesaResolve, recordSale,
            addAlteration, advanceAlteration, addCorporate, corporateTier,

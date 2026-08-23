@@ -338,3 +338,88 @@ the two visible opacities and sums the advance, which is frame-rate independent.
 ### Credits
 0.77 left. Eleven of thirteen room garments are still flat plates. At 1.5 a frame that is
 ~16 credits for one more eight-angle garment, or ~6 for another four-angle one.
+
+
+## 14. A turnaround that actually turns  `[x]`
+
+> "the 360 turn is so bad, it looks confusing and it doesnt even go round just random
+> angles make it actually spin like in the video"
+
+Right on every count, and the fault was mine, not the images'.
+
+**It was not an ordering bug.** Measured body width across each set — it peaks at 0/180 and
+narrows at both profiles, on both garments — so the frames were in correct rotational
+sequence. **The fault was the crossfade.** Dissolving two poses 45 degrees apart does not
+blend into a turn; it puts two overlapping people on screen. At charcoal-db's 90-degree
+steps it was worse. The thing I added to make eight stills look smooth is what made them
+look random.
+
+**Interpolation could not save it.** Tried optical flow between adjacent angles first,
+because it is free: the result is a ghost with a translucent duplicate offset sideways.
+A 45-degree body rotation reveals surfaces that do not exist in the previous frame, so
+there is nothing for the flow field to track them to. Recorded because it is worth not
+trying twice.
+
+The fix was never in the code. It was **more frames**.
+
+- [x] An 8-second video of the man turning once on the spot (Veo 3.1 Lite, 8 credits),
+      with `start_image` **and** `end_image` both set to the front plate, which forces a
+      closed loop rather than a turn that drifts
+- [x] 192 frames, pillarboxed 3:4 inside 16:9 — cropped to the measured content box and
+      sampled to **72 frames, five degrees apart**, 1.68 MB total at 22 KB a frame
+- [x] Crossfade removed. `spintest.js` now asserts `singleFrameOnly` — exactly one frame
+      lit at every sample. Any overlap is a regression now, not a feature
+- [x] Turn rates are stated in **seconds per revolution**, not frames per second, so a
+      72-frame set and the room's 24-frame subsample turn at the same speed
+- [x] The room takes a 24-frame subsample: it holds every frame as a live GPU texture
+
+`charcoal-db` is no longer spinnable. Four stills at 90 degrees was exactly the thing being
+complained about, and one garment turning properly beats two turning badly. Its four plates
+stay on disk for when there are credits for a real turntable.
+
+**Verified:** `spintest.js` — 72 frames, all loaded, `singleFrameOnly: true`,
+`maxVisible: 1`, idle advancing untouched, drag working both ways. `tools/spinshot.js`
+captures the sequence at eight even points and it reads front → profile → back → other
+profile → front.
+
+### Model availability, which is not what the price list suggests
+The free plan gates the **cheap** models, not the expensive ones. Failed creates cost
+nothing, so mapping it was free:
+
+| | |
+|---|---|
+| gated | `kling3_0_turbo` (7.5), `grok_video` (7.5), `kling2_6`, `seedance_2_0_mini` (12.5), `nano_banana` (1), `seedream_v4_5` (1), `kling_omni_image` (0.5) |
+| allowed | `veo3_1_lite` (8 for 8s), `minimax_hailuo`, `nano_banana_flash` (1.5), `nano_banana_pro` (2) |
+
+`veo3_1_lite` is the one that matters: it is the only affordable video model on the free
+plan that accepts **both** a start and an end image, which is what makes a seamless loop
+possible at all.
+
+## 15. The chop, and the black  `[x]`
+
+> "it goes black at the end for too long ... i feel there is a part of the animation you chop"
+
+Both real, and both measurable.
+
+**The chop is in the source clip, not the code.** `d037 -> d038` is a jump cut: the
+waistcoat appears in a single frame, a **10.3** step against a 1.3 baseline. Seedance cut
+instead of dressing him.
+Fixed by spending frames that were doing nothing — d033 to d037 move by 0.5-1.3 each, so
+d034..d041 are now flow interpolations from d033 to d042. Optical flow works here, where it
+failed on the 360, because the pose barely moves; it is an occlusion, not a rotation.
+**Largest single-frame step: 10.3 -> 4.55.**
+
+**The black was not a frozen tail.** Checked that first — the sequence keeps moving to
+d095. The real cause: once the white shirt is covered, the garment region drops from ~74 to
+~44 mean luma, so the **whole back half** of the scroll reads as black against a bone page.
+A gamma lift ramped in over the interpolated stretch raises mid-tones without moving the
+black point or clipping highlights, so the lighting stays low-key rather than going flat.
+**Back half: 44 -> 63.5.** Darkest frame in the sequence: **36.9 -> 54.9.**
+
+**And the column stopped ending on a hard edge.** The horizontal dissolve killed the
+rectangle's inner edge, but the column still finished as a hard horizontal band when the
+section scrolled past. A vertical mask now fades the whole thing, dissolve included, at top
+and bottom. The opaque stretch (5%-92%) is set to clear the frames at top:6vh / bottom:8vh,
+so no frame edge is ever left hanging over a transparent part of its own ground.
+Very-dark pixels across the section tail: **54.7% -> 50.7%, 50.0% -> 39.8%, 49.2% -> 38.7%,
+27.0% -> 20.6%.**

@@ -422,7 +422,15 @@ p{margin:0 0 1em}
 .anat-stage-panel{position:absolute;top:0;bottom:0;right:0;left:29%;z-index:0;
   background:linear-gradient(90deg,
     rgba(17,18,13,0) 0%, rgba(17,18,13,.30) 9%, rgba(17,18,13,.88) 17%,
-    #11120d 20%, #11120d 100%)}
+    #11120d 20%, #11120d 100%);
+  /* The horizontal dissolve killed the rectangle's inner edge, but the column still
+     ended in a hard horizontal band as the section scrolled past. This fades the whole
+     thing - dissolve included - at top and bottom, so the section arrives and leaves by
+     melting into the page. The opaque stretch (5%-92%) is set to clear the frames,
+     which sit inset at top:6vh / bottom:8vh, so no frame edge is ever left hanging
+     over a transparent part of its own ground. */
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 5%,#000 92%,transparent 100%);
+          mask-image:linear-gradient(180deg,transparent 0,#000 5%,#000 92%,transparent 100%)}
 .anat-track{position:relative}
 .anat-sticky{position:sticky;top:0;height:100vh;overflow:hidden;isolation:isolate;
   display:grid;grid-template-columns:minmax(0,42%) minmax(0,58%);align-items:center}
