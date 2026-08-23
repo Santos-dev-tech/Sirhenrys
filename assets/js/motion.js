@@ -434,6 +434,8 @@ window.Motion = (() => {
     unmountAnatomy();
     if (!section) return;
     const stage = section.querySelector('.anat-stage');
+    // the camera transforms this inner layer; .anat-stage clips it to the panel
+    const cam = stage ? (stage.querySelector('.anat-cam') || stage) : null;
     const frames = stage ? [...stage.querySelectorAll('.anat-f')] : [];
     const steps = [...section.querySelectorAll('.anat-step')];
     const bar = section.querySelector('.anat-rule i');
@@ -493,8 +495,8 @@ window.Motion = (() => {
         const tz = a[2] + (b[2] - a[2]) * t;
         const k = 1 - Math.exp(-5 * dt);
         camX += (tx - camX) * k; camY += (ty - camY) * k; camZ += (tz - camZ) * k;
-        stage.style.transformOrigin = camX.toFixed(2) + '% ' + camY.toFixed(2) + '%';
-        stage.style.transform = 'scale(' + camZ.toFixed(4) + ')';
+        cam.style.transformOrigin = camX.toFixed(2) + '% ' + camY.toFixed(2) + '%';
+        cam.style.transform = 'scale(' + camZ.toFixed(4) + ')';
       }
       if (idx !== shownStep) {
         shownStep = idx;

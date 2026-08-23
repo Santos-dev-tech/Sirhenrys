@@ -27,7 +27,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     for (let i = 0; i <= 10; i++) {
       Motion.scrollTo(sec.offsetTop + total * (i / 10), { immediate: true });
       await wait(320); down.push(cur());
-      const st = document.querySelector('.anat-stage');
+      // the camera transform moved to .anat-cam, which .anat-stage clips
+      const st = document.querySelector('.anat-cam') || document.querySelector('.anat-stage');
       cams.push(getComputedStyle(st).transform.replace(/matrix\(([^,]+).*/, '$1') + '@' + st.style.transformOrigin);
     }
     for (let i = 10; i >= 0; i--) {

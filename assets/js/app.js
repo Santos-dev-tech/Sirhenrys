@@ -103,12 +103,12 @@
     <section class="anat" id="anatomy" style="height:${ANAT.length * 100}vh">
       <div class="anat-sticky">
         <div class="anat-stage-panel"></div>
-        <div class="anat-stage" data-frames="97">
+        <div class="anat-stage" data-frames="97"><div class="anat-cam">
           ${Array.from({length: 97}, (_, i) =>
             `<img class="anat-f${i === 0 ? ' on' : ''}" src="assets/seq/d${String(i).padStart(3,'0')}.jpg"
               alt="${i === 0 ? "A Sir Henry's suit, assembled layer by layer" : ''}"
               decoding="async" fetchpriority="${i < 4 ? 'high' : 'low'}">`).join('')}
-        </div>
+        </div></div>
         <div class="anat-copy">
           ${ANAT.map((a, i) => `<div class="anat-step ${a.side} ${i === 0 ? 'on' : ''}">
             <span class="anat-num">${String(i + 1).padStart(2, '0')}</span>

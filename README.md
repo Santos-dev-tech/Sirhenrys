@@ -107,7 +107,9 @@ assets/seq/          97 frames of the dressing sequence
 assets/video/        the source clip the sequence was extracted from
 tools/serve.py       static server with Range support
 tools/shoot.js       headless screenshot + health harness (needs puppeteer-core)
-tools/seqtest.js     proves the sequence runs forward and reverse
+tools/seqtest.js     proves the sequence runs forward and reverse, and that the camera moves
+tools/anattest.js    measures the anatomy layout at 1440x900: stage vs panel, copy vs panel
+tools/anatshot.js    renders the anatomy section at five scroll marks, desktop or phone
 tools/bundle.py      inlines everything into one portable .html
 tools/gen.ps1        image generation runner (Higgsfield CLI)
 tools/admintest.js   headless test: auth, roles, POS sale, alterations, corporate

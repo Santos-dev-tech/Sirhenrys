@@ -139,3 +139,31 @@ panel achieves a light section without destroying the subject.
 - The stage collapsed to **34px tall**: the frames are absolutely positioned, so the
   container had no intrinsic height. Fixed with an explicit height.
 - **35 controls were under 40px**. Now 0.
+
+
+## 10. The light section, fixed where it was actually broken  `[x]`
+
+The light-background version shipped with two defects that only showed at desktop width,
+both found by measuring the layout rather than looking at it.
+
+- [x] **The camera zoom escaped the panel.** The per-step zoom (up to 1.20x) was applied to
+      `.anat-stage` itself, so at full push the frames grew *past* the dark panel and their
+      own pale letterbox showed as a grey rectangle sitting on the bone page. Measured:
+      stage `x:539 w:940 right:1479` against panel `x:576 w:864 right:1440` — 39px past the
+      viewport edge. The transform now lives on an inner `.anat-cam` layer that
+      `.anat-stage` clips. Stage and panel are now identical at every scroll position.
+- [x] **The opening title sat on top of the garment.** `.anat-step.centre` was still
+      `position:fixed; left:50%` in white type with a radial scrim — correct for the old
+      full-bleed layout, wrong once the garment moved into its own column. Measured: title
+      right edge `996px` against panel left edge `576px`. It now sits in the copy column
+      like every other step, dark on bone, only larger.
+- [x] **The feather was cutting the sleeves off on a phone.** The radial mask
+      (`ellipse 78% 82%`, transparent by 97%) reached transparency before the frame edge,
+      which is invisible on desktop where the frame is letterboxed, but on a phone the
+      frame spans the full stage width and the outstretched sleeves fell in the fade.
+      Widened to `ellipse 124% 94%`, opaque to 74% — the feather only has to soften top and
+      bottom now that the stage clips to a colour-matched panel.
+
+**Verified** by `tools/anattest.js` at 1440x900: stage box == panel box, and the copy box
+clears the panel at all nine sampled scroll positions, with no console errors.
+`tools/anatshot.js` renders the section at five scroll marks, desktop and phone.

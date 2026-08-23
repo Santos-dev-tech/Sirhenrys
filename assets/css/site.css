@@ -416,7 +416,11 @@ p{margin:0 0 1em}
   display:grid;grid-template-columns:minmax(0,42%) minmax(0,58%);align-items:center}
 /* stage is the right-hand column, inset so the garment never touches an edge */
 .anat-stage{position:absolute;top:6vh;bottom:8vh;right:0;left:40%;z-index:1;
-  padding:2vh 1.5vw 3vh}
+  padding:2vh 1.5vw 3vh;overflow:hidden}
+/* The camera zoom used to scale .anat-stage itself, so at 1.2x the frames grew past the
+   dark panel and their own pale letterbox showed as a grey rectangle on the bone page.
+   The transform now lives on an inner layer that .anat-stage clips. */
+.anat-cam{position:absolute;inset:0;will-change:transform;transform-origin:50% 50%}
 /* image-sequence stage: every frame stacked, only the current one visible. No video
    element, so nothing can stall on a codec, a seek, or a blob URL. */
 /* The garment sits in its own column rather than filling the screen. Two reasons:
@@ -424,8 +428,13 @@ p{margin:0 0 1em}
    fewer upscaled pixels per screen pixel, so the 480p-origin frames read sharper. */
 .anat-f{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
   object-position:center 46%;opacity:0;
-  -webkit-mask-image:radial-gradient(ellipse 78% 82% at 50% 48%,#000 58%,transparent 97%);
-          mask-image:radial-gradient(ellipse 78% 82% at 50% 48%,#000 58%,transparent 97%)}
+  /* The feather existed to stop the frame reading as a pasted rectangle on the page.
+     Now that .anat-stage clips to the panel and the panel colour is sampled from the
+     frames themselves, it only has to soften the top and bottom - so the horizontal
+     radius is generous. At 78% it was cutting the sleeve tips off on a phone, where the
+     frame spans the full stage width. */
+  -webkit-mask-image:radial-gradient(ellipse 124% 94% at 50% 48%,#000 74%,transparent 100%);
+          mask-image:radial-gradient(ellipse 124% 94% at 50% 48%,#000 74%,transparent 100%)}
 .anat-f.on{opacity:1}
 .anat-stage::after{content:'';position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse at 50% 46%,transparent 62%,rgba(17,18,13,.5) 98%)}
@@ -464,7 +473,6 @@ p{margin:0 0 1em}
   .anat-step{max-width:none;transform:translateY(14px)}
   .anat-step h3{font-size:clamp(26px,7.4vw,40px)}
   .anat-step p{font-size:14px}
-  .anat-step.centre{position:absolute;top:44%;left:50%}
   .anat-count{bottom:18px}
   .anat-rule{bottom:10px}
 }
@@ -518,33 +526,24 @@ p{margin:0 0 1em}
    set by motion.js on boot; without it everything renders plainly. */
 html:not(.js) [data-reveal]{opacity:1 !important;transform:none !important;clip-path:none !important}
 
-/* the opening step is a centred title card, the way the reference film opens */
-.anat-step.centre{position:fixed;left:50%;top:50%;transform:translate(-50%,-42%);
-  text-align:center;max-width:min(760px,86vw);z-index:4}
-.anat-step.centre.on{transform:translate(-50%,-50%)}
-.anat-step.centre h3{font-size:clamp(44px,7.4vw,104px);line-height:.98;margin-bottom:22px}
-.anat-step.centre p{max-width:44ch;margin-inline:auto;font-size:15px}
+/* The opening step used to be a viewport-centred title card in white type, which made
+   sense when the garment filled the screen. In the split layout it landed on top of the
+   dark panel and read half over bone, half over the suit. It now sits in the copy column
+   with every other step - only larger, because it is still the title. */
+.anat-step.centre{grid-area:1/1;position:relative;left:auto;top:auto;
+  text-align:left;max-width:none;z-index:3;transform:translateY(18px)}
+.anat-step.centre.on{transform:none}
+.anat-step.centre h3{font-size:clamp(34px,4.3vw,62px);line-height:1;margin-bottom:22px;
+  color:var(--ink)}
+.anat-step.centre p{max-width:34ch;margin-inline:0;font-size:14.5px;color:var(--ink-2)}
 .anat-step.centre .anat-num{display:none}
-@media(max-width:860px){
-  .anat-step.centre{left:var(--pad) !important;right:var(--pad) !important;
-    transform:none;text-align:left;top:auto;bottom:16vh}
-  .anat-step.centre.on{transform:none}
-  .anat-step.centre p{margin-inline:0}
+@media(max-width:900px){
+  .anat-step.centre{max-width:none;transform:translateY(14px)}
+  .anat-step.centre h3{font-size:clamp(30px,8.6vw,46px)}
 }
 
-/* the opening title crosses a white shirt, so it needs its own ground to stay legible */
-.anat-step.centre{color:#f6f1e8}
-.anat-step.centre h3{color:#f6f1e8}
-.anat-step.centre p{color:#c9c2b6}
-.anat-step.centre .anat-eyebrow,.anat-step.centre .anat-cap{color:#a49b8d}
-.anat-step.centre::before{content:'';position:absolute;left:50%;top:50%;
-  transform:translate(-50%,-50%);width:160%;height:200%;z-index:-1;pointer-events:none;
-  background:radial-gradient(ellipse at center,
-    rgba(17,18,13,.92) 0%, rgba(17,18,13,.80) 40%, rgba(17,18,13,.45) 66%, rgba(17,18,13,0) 82%)}
-.anat-step.centre h3{text-shadow:0 2px 30px rgba(0,0,0,.65)}
-
-/* the stage is the camera: it scales about a focal point per step */
-.anat-stage{will-change:transform;transform-origin:50% 50%}
+/* the camera scales about a focal point per step - see .anat-cam above, which is
+   clipped by .anat-stage so a zoom can never spill onto the page */
 
 /* scroll velocity, published by the motion layer, gives the grid a little inertia */
 :root{--vel:0}
