@@ -22,11 +22,13 @@ window.SH_FIREBASE = {
   // cookies, and a staff till has no business reporting page views.
   analytics: false,
 
-  // The staff assistant. Costs money per question - Gemini 2.5 Flash is roughly
-  // $0.30 per million input tokens and $2.50 per million output - so it is a switch,
+  // The staff assistant. Costs money per question - Gemini 3.7 Flash is roughly
+  // $0.75 per million input tokens and $3.75 per million output - so it is a switch,
   // not an assumption. Set false and the panel says it is off and nothing is billed.
   ai: true,
-  aiModel: 'gemini-2.5-flash',
+  // Probed against this project: every 2.x model is retired. ai.js falls through a
+  // list of live alternatives if this one is ever refused.
+  aiModel: 'gemini-3.7-flash',
 
   config: {
     apiKey: 'AIzaSyDSfC8bn2GXlBPDQ9DRQZRaV-5ntV0TaCU',

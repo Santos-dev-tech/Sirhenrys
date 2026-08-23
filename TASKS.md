@@ -566,3 +566,46 @@ no stock.
 The Firebase AI API is not enabled on the project, so every question currently returns
 `AI/api-not-enabled`. Open **console.firebase.google.com/project/sir-henrys/genai** and click
 Get started. The error in the panel now names that exact URL rather than showing a raw code.
+
+### 19a. Getting it to actually answer
+
+Enabling AI Logic in the console was necessary but not sufficient. Three separate
+problems, each of which looked like the previous one, and none of which was guessable:
+
+**1. The SDK was too old.** On 12.3.0, `gemini-3.7-flash` fails with
+`Cannot read properties of undefined (reading 'some')` - an internal parser crash. The
+model answers; the old SDK cannot read the reply. On **12.18.0** the same call returns OK.
+Worth knowing that an SDK failure and a model failure look nothing alike: a wrong model
+name gives a clean 404 *from the server*.
+
+**2. Every 2.x model is retired**, and the server says so itself:
+`models/gemini-2.5-flash is no longer available to new users. Please update your code to
+use models/gemini-3.6-flash`. `gemini-2.0-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro`
+and `gemini-1.5-flash` are all gone. Probed rather than assumed - `tools/modelprobe.js`
+tries a list of names against the live project and prints each raw error.
+
+**3. My own error mapping sent me the wrong way twice.** It matched on
+`firebasevertexai.googleapis.com`, which is in the URL of **every** error, so a quota
+refusal was reported as "the API is not switched on". Two rounds were spent chasing the
+wrong fix. The patterns now match on status codes and reasons, never on the host, and
+`state.lastRaw` keeps the untranslated text - a friendly message is worse than useless
+when it is the wrong friendly message.
+
+The real error, once visible: **HTTP 429**. The Gemini free tier allows **20 requests per
+day, per model**. Probing had spent them.
+
+- [x] SDK pinned to 12.18.0
+- [x] Candidates are live names only: `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-flash-latest`
+- [x] The request loop now falls through on **quota** as well as on a refused name - the
+      20/day allowance is per model, so the next name is a fresh allowance rather than the
+      same wall
+- [x] The quota message states the actual limit and the retry delay, both parsed from the
+      server's own reply, and the refused-model message surfaces the replacement the
+      server names rather than guessing one
+
+**Verified**: a real question answered from live shop data, having automatically fallen
+through from `gemini-3.7-flash` (quota spent) to `gemini-3.6-flash`.
+
+`tools/modelprobe.js`, `tools/toolprobe.js` and `tools/rawprobe.js` are kept. The second
+isolates which *part* of a request a server objects to - model, tools, system instruction
+or generation config - which is what proved the tools schema was innocent.

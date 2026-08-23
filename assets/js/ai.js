@@ -28,9 +28,13 @@
    model is occasionally wrong, and being wrong about which screen to open costs a
    click, while being wrong about stock costs a count.
 --------------------------------------------------------------------------- */
-const SDK = 'https://www.gstatic.com/firebasejs/12.3.0/';
+/* 12.18.0, not 12.3.0. Probed: on 12.3.0 gemini-3.7-flash fails with an SDK-internal
+   "reading 'some' of undefined" - the model answers, the old parser cannot read it. The
+   newer SDK handles it. Worth knowing that a model failure and an SDK failure look
+   nothing alike: a wrong name gives a clean 404 from the server. */
+const SDK = 'https://www.gstatic.com/firebasejs/12.18.0/';
 
-const state = { ready: false, error: null, model: null, busy: false };
+const state = { ready: false, error: null, model: null, busy: false, modelName: null, candidates: [], build: null };
 const listeners = [];
 const notify = () => listeners.forEach(fn => { try { fn({ ...state }); } catch (e) {} });
 
@@ -173,13 +177,21 @@ async function start() {
     const app = getApps().length ? getApp() : initializeApp(cfg.config);
     const ai = getAI(app, { backend: new GoogleAIBackend() });
 
-    const wanted = cfg.aiModel || 'gemini-2.5-flash';
-    const build = m => getGenerativeModel(ai, {
+    // Which model names a project accepts is not knowable up front - it depends on the
+    // project, the region, and what Google retired this month. Rather than guess one and
+    // fail, keep a list and fall through it on the first real request: constructing a
+    // model never fails, only sending does.
+    state.build = m => getGenerativeModel(ai, {
       model: m, tools: TOOLS, systemInstruction: SYSTEM,
       generationConfig: { temperature: 0.3, maxOutputTokens: 700 }
     });
-    try { state.model = build(wanted); }
-    catch (e) { state.model = build('gemini-3.7-flash'); }
+    /* Probed against this project, August 2026. Every 2.x model is retired - the server
+       says so itself: "models/gemini-2.5-flash is no longer available to new users,
+       use models/gemini-3.6-flash". So the list holds only names that answered. */
+    state.candidates = [cfg.aiModel, 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-flash-latest']
+      .filter((m, i, a) => m && a.indexOf(m) === i);
+    state.modelName = state.candidates[0];
+    state.model = state.build(state.modelName);
 
     state.ready = true; state.error = null;
   } catch (e) {
@@ -188,19 +200,52 @@ async function start() {
   notify();
 }
 
+const isQuota = e => /\[429|RESOURCE_EXHAUSTED|exceeded your current quota/i.test(
+  (e && (e.message || String(e))) || '');
+
+// Is this "no such model" rather than something that would fail for every model?
+function isModelRefused(e) {
+  const m = (e && (e.message || String(e))) || '';
+  return /not found|NOT_FOUND|404|unsupported|not supported|is not available|invalid model|does not exist/i.test(m);
+}
+
 function readable(e) {
   const m = (e && (e.message || String(e))) || '';
-  if (/app-check|App Check/i.test(m))
-    return 'Firebase App Check is blocking the request. Firebase console → App Check → ' +
-           'register this app (reCAPTCHA Enterprise for web), or add a debug token for localhost.';
-  if (/API key not valid|api-key/i.test(m))
-    return 'The Firebase config in firebase-config.js is not accepted by this project.';
-  if (/not found|404|model/i.test(m) && /model/i.test(m))
-    return 'That Gemini model name was refused. Set aiModel in firebase-config.js to one this project can use.';
-  if (/api-not-enabled|firebasevertexai\.googleapis\.com|PERMISSION_DENIED|403/.test(m))
+  // keep the untranslated text: a friendly message is useless when it is the wrong one
+  state.lastRaw = m;
+
+  /* Order matters, and the patterns have to be narrow. An earlier version matched on
+     "firebasevertexai.googleapis.com" - which appears in the URL of EVERY error - so a
+     quota refusal was reported as "the API is not switched on", and the wrong fix got
+     chased for two rounds. Match on the status and the reason, never on the host. */
+
+  const quota = m.match(/Please retry in ([\d.]+)s/);
+  if (/\[429|RESOURCE_EXHAUSTED|exceeded your current quota|rate.?limit/i.test(m)) {
+    const per = m.match(/limit:\s*(\d+)/);
+    return 'Gemini’s free tier is used up for now' +
+      (per ? ' (' + per[1] + ' requests a day for this model)' : '') + '. ' +
+      (quota ? 'Try again in about ' + Math.ceil(+quota[1] / 60) + ' minute(s), or ' : '') +
+      'switch aiModel in firebase-config.js to another model, or add billing in the ' +
+      'Google Cloud console to raise the limit.';
+  }
+  if (/api-not-enabled|SERVICE_DISABLED|has not been used in project/i.test(m))
     return 'Firebase AI Logic is not switched on for this project yet. Open ' +
            'console.firebase.google.com/project/' + ((window.SH_FIREBASE || {}).config || {}).projectId +
-           '/genai and click Get started, then reload. It can take a couple of minutes to propagate.';
+           '/genai and click Get started, then reload.';
+  if (/app-check|App Check/i.test(m))
+    return 'Firebase App Check is blocking the request. Firebase console → App Check → ' +
+           'register this app, or add a debug token for localhost.';
+  if (isModelRefused(e)) {
+    // the server usually names its own replacement - surface that rather than a guess
+    const hint = m.match(/use\s+(models\/[\w.-]+)/);
+    return 'This project refused: ' + (state.candidates || []).join(', ') + '.' +
+           (hint ? ' The server suggests ' + hint[1].replace('models/', '') + '.' : '') +
+           ' Set aiModel in firebase-config.js.';
+  }
+  if (/API key not valid|api-key-not-valid/i.test(m))
+    return 'The Firebase config in firebase-config.js is not accepted by this project.';
+  if (/\[403|PERMISSION_DENIED/.test(m))
+    return 'This project is not permitted to call that model. Check Firebase console → AI Logic.';
   if (/Failed to fetch|NetworkError|dynamically imported/i.test(m))
     return 'Could not reach the Firebase AI SDK. Check the connection.';
   return m || 'The assistant could not start.';
@@ -214,9 +259,26 @@ async function ask(history, text, handlers) {
   if (state.busy)   return { ok: false, error: 'Still working on the last question.' };
   state.busy = true; notify();
   try {
-    const chat = state.model.startChat({ history });
-    let res = await chat.sendMessage(
-      'Shop summary (live):\n' + snapshot() + '\n\nStaff member asks: ' + text);
+    // Walk the candidate list until one is accepted, then stay on it for the session.
+    let res, chat, lastErr = null;
+    for (let i = Math.max(0, state.candidates.indexOf(state.modelName)); i < state.candidates.length; i++) {
+      state.modelName = state.candidates[i];
+      state.model = state.build(state.modelName);
+      chat = state.model.startChat({ history });
+      try {
+        res = await chat.sendMessage(
+          'Shop summary (live):\n' + snapshot() + '\n\nStaff member asks: ' + text);
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        // Fall through on a refused name, and on a quota refusal too: the free tier
+        // counts 20 requests a day PER MODEL, so the next name in the list is a fresh
+        // allowance rather than the same wall.
+        if (!isModelRefused(e) && !isQuota(e)) throw e;
+      }
+    }
+    if (lastErr) throw lastErr;
 
     const actions = [];
     // The model may want a function, then use its result to answer. Two rounds is
