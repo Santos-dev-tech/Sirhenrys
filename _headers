@@ -1,0 +1,19 @@
+# Images, frames and vendored libraries never change without a new filename, so they can
+# be cached hard. A returning visitor then re-downloads almost nothing.
+/assets/img/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/seq/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/spin/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Scripts and styles DO change, and a stale script against a fresh index.html is how a
+# site half-updates. Revalidate every time; the 304 costs almost nothing.
+/assets/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/css/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The shell must never be cached, or a deploy does not reach anyone holding the old one.
+/index.html
+  Cache-Control: no-cache

@@ -1,0 +1,3 @@
+# Every route in this app is a hash (#/shop, #/admin), so the server only ever needs to
+# hand back index.html. This covers anyone who types or bookmarks a path.
+/*    /index.html   200
