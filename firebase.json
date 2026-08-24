@@ -1,0 +1,61 @@
+{
+  "hosting": {
+    "public": ".",
+
+    "//": [
+      "Spark Hosting allows 360 MB of transfer a day, so what is NOT uploaded matters.",
+      "The video files are the biggest thing here and nothing at runtime touches them -",
+      "the dressing sequence and the turnaround were both extracted to still frames, and",
+      "the clips are kept only as the source they came from. Leaving them out saves 18 MB.",
+      "The caching rules below matter just as much: with them, a returning visitor",
+      "re-downloads almost nothing."
+    ],
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "firestore.rules",
+      "**/.*",
+      "**/node_modules/**",
+      "assets/video/**",
+      "tools/**",
+      "*.md",
+      "admin.html.bak"
+    ],
+
+    "//routing": [
+      "Every route in this app is a hash (#/shop, #/admin), so the server only ever needs",
+      "to hand back index.html. The rewrite covers anyone who types or bookmarks a path."
+    ],
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ],
+
+    "headers": [
+      {
+        "//": "Images, frames and vendored libraries never change without a new filename, so they can be cached hard. This is what keeps a second visit nearly free against the daily quota.",
+        "source": "**/@(jpg|jpeg|png|webp|svg|woff2|mp4)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "//": "Scripts and styles DO change, and a stale one against a fresh index.html is how a site half-updates. Revalidate every time; the 304 costs almost nothing.",
+        "source": "**/@(js|css)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        ]
+      },
+      {
+        "//": "The shell must never be cached, or a deploy does not reach anyone still holding the old one.",
+        "source": "/index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
+    ]
+  },
+
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
