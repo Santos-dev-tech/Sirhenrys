@@ -33,3 +33,28 @@ buying signal.
 Slide 14, "What is not finished". Volunteering the four honest limits - simulated M-Pesa,
 generated imagery, 19 of the products, demo-grade staff login - buys more trust than any
 feature slide. Anyone who claims a system is finished has not built one.
+
+---
+
+## The browser deck — `Sir-Henrys-Proposal.html`
+
+One self-contained file, 1.5 MB, sixteen slides. Rebuild with `python deck.py`
+(regenerate the embedded imagery first with the snippet that writes `_img.json`).
+
+Images are embedded as data URIs on purpose. A client meeting is exactly the place a
+network drops out, and a deck that needs one is a deck that can fail in the room. This
+opens from a USB stick, an email attachment, or a laptop in flight mode.
+
+**Presenting it**
+- Arrow keys, space, or PageUp/PageDown to move. Home and End jump to the ends.
+- **F** for full screen.
+- Tap the right half of the screen to advance, the left half to go back — for a phone.
+- The rule along the bottom is progress; the counter is bottom right.
+
+**Single theme on purpose.** A lookbook should look identical on every screen, so every
+colour is painted explicitly rather than inherited from the viewer's light or dark setting.
+
+The palette and both typefaces are the shop's own, lifted from `assets/css/site.css`, so
+the deck and the thing it is selling look like one object rather than a template with a
+logo dropped on it. The bronze is raised from #846144 to #A67C52 — the brand value goes
+muddy on a dark ground.
