@@ -11,7 +11,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const errs=[]; const warns=[];
  p.on('pageerror',e=>errs.push(e.message));
  p.on('console',m=>{ if(m.type()==='error') errs.push(m.text().slice(0,140));
-                     if(m.type()==='warning') warns.push(m.text().slice(0,160)); });
+                     if(m.type()==='warning') warns.push(m.text().slice(0,160));
+                     if(m.type()==='info'||m.type()==='log') warns.push('[i] '+m.text().slice(0,200)); });
  await p.goto('http://localhost:8100/index.html',{waitUntil:'domcontentloaded',timeout:60000});
 
  // Wait for a condition rather than a guess: anonymous auth and a dynamic ESM import
@@ -34,7 +35,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
    productsRendered: document.querySelectorAll('#app .card, #app [class*=card]').length
  }));
  out.debugModeFlag = await p.evaluate(()=>self.FIREBASE_APPCHECK_DEBUG_TOKEN===true);
- out.warnings = [...new Set(warns)].filter(w=>/app-check/i.test(w));
+ out.appCheckLog = [...new Set(warns)].filter(w=>/app.?check|debug token/i.test(w));
  out.errors=[...new Set(errs)];
  console.log(JSON.stringify(out,null,1));
  await b.close();

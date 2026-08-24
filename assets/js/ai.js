@@ -176,11 +176,20 @@ async function start() {
     // the least surprising fix - they do not share state and do not need to.
     const app = getApps().length ? getApp() : initializeApp(cfg.config);
 
-    /* App Check again, separately. appcheck.js attested the COMPAT app; this is the ESM
-       one, and the two SDKs keep separate registries, so a token on one is invisible to
-       the other. Firebase enforces App Check on AI Logic, so without this the assistant
-       is the one service that would still be rejected after everything else passes. */
-    if (cfg.appCheckSiteKey) {
+    /* App Check, but ONLY if the compat side did not already do it.
+
+       The two SDKs keep separate registries, so in principle this app needs its own
+       token. In practice both providers render reCAPTCHA into the same container and the
+       second one fails with "reCAPTCHA has already been rendered in this element",
+       taking the first one's token down with it - which broke Firestore auth entirely.
+       One attestation is worth more than two broken ones, and the compat app is the one
+       carrying orders and stock.
+
+       The cost is that AI Logic gets no App Check token, so App Check enforcement must
+       stay OFF for AI Logic specifically until the assistant moves to the same SDK as
+       everything else. Firestore and Authentication can be enforced normally. */
+    const compatDone = window.SHAppCheck && window.SHAppCheck.status().on;
+    if (cfg.appCheckSiteKey && !compatDone) {
       try {
         const ac = await import(SDK + 'firebase-app-check.js');
         const P = (cfg.appCheckProvider || 'enterprise').toLowerCase() === 'v3'

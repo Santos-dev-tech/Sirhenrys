@@ -755,3 +755,30 @@ a real uid, auth ready, 72 products rendered, no errors.
 That test also caught itself lying. A fixed 5s sleep reported `syncOn: false`, because
 anonymous auth had not finished - a slow boot read as a broken one, the same mistake as
 asserting on `display` in task 19b. It now waits on a condition.
+
+### 21b. The key is in, and two things it broke
+
+Key `6Lc0w5Ut...` for `sirhenrysdemosite.netlify.app`, provider `enterprise`. It activated
+first try - `on:true, provider:enterprise` - and immediately broke two things that only
+showed up because the test looks at the whole page rather than at App Check alone.
+
+**`reCAPTCHA has already been rendered in this element`.** `appcheck.js` attests the compat
+app and `ai.js` attested the ESM one, and both render reCAPTCHA into the same container.
+The second render failed and took the first one's token with it, which killed Firestore
+auth. Now only the compat app attests - it is the one carrying orders and stock - and
+`ai.js` stands down when it sees `SHAppCheck.status().on`.
+
+  *The cost, stated plainly:* AI Logic gets no App Check token, so **enforcement must stay
+  OFF for AI Logic** until the assistant moves onto the same SDK as everything else.
+  Firestore and Authentication enforce normally.
+
+**A 403 that killed local development.** The debug token has to be registered by hand
+before Firebase will accept it; until then the exchange 403s, and that cascades - Auth
+cannot get a token, anonymous sign-in fails with `auth/network-request-failed`, and sync
+dies with it. Trading a working local shop for attestation nobody outside the machine can
+reach is a bad bargain, so **App Check is now off on localhost unless asked for**:
+`?appcheck=1`, or `appCheckLocal:true`. It still activates automatically on the live
+domain, which is the only place it does anything.
+
+Verified after both fixes, on localhost: `syncOn:true` with a real uid, assistant ready,
+72 products, **no errors**.

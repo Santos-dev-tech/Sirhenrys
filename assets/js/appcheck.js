@@ -72,15 +72,35 @@
     return;
   }
 
-  // A local host cannot pass reCAPTCHA, and whitelisting it in reCAPTCHA would defeat
-  // the point. Debug mode instead: the token printed below is registered once, by hand.
+  /* On localhost App Check is OFF unless you ask for it, and that is a deliberate
+     trade rather than laziness.
+
+     A local host cannot pass reCAPTCHA - the key is bound to the live domain, and
+     whitelisting localhost would let anyone run a copy of this app from their own
+     machine and pass attestation. So localhost needs a debug token, which has to be
+     registered by hand in the console. Until it is, the token exchange 403s, and that
+     failure cascades: Firebase Auth cannot get a token, anonymous sign-in fails with
+     auth/network-request-failed, and Firestore sync dies with it. Measured, not guessed.
+
+     Trading a working local shop for attestation nobody can reach is a bad bargain, so:
+     turn it on deliberately with ?appcheck=1 (or appCheckLocal:true) when you want to
+     test the real path, and register the debug token it prints. */
   const local = /^(localhost|127\.0\.0\.1|\[::1\]|.*\.local)$/i.test(location.hostname) ||
                 location.protocol === 'file:';
+  const wantLocal = cfg.appCheckLocal === true ||
+                    /[?&]appcheck=1/.test(location.search);
+  if (local && !wantLocal) {
+    st.error = 'off on localhost - add ?appcheck=1 to test it, and register the debug ' +
+               'token it prints under Firebase console -> App Check -> Manage debug tokens';
+    console.info('[app-check] ' + st.error);
+    return;
+  }
   if (local) {
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     st.debug = true;
-    console.info('[app-check] debug mode: a token will be printed below. Register it at ' +
-                 'Firebase console -> App Check -> Manage debug tokens. Do not commit it.');
+    console.info('[app-check] debug mode: a token is printed below. Register it at ' +
+                 'Firebase console -> App Check -> Manage debug tokens, or every request ' +
+                 'will 403 and take Firestore auth down with it. Do not commit it.');
   }
 
   /* Which provider depends on where the key came from. Keys made in Google Cloud - which

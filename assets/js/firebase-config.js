@@ -42,7 +42,7 @@ window.SH_FIREBASE = {
 
      Like the apiKey, this one is public by design. What protects you is that reCAPTCHA
      only issues tokens to the domains you registered. */
-  appCheckSiteKey: '',
+  appCheckSiteKey: '6Lc0w5UtAAAAABh2HXN9j6ILI60zAlGTbC6Lbq9u',
 
   // 'enterprise' for a key made in Google Cloud (all new ones), 'v3' for a legacy key
   // from the old admin console. They need different providers; the wrong one fails loudly
