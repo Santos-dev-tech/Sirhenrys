@@ -25,3 +25,8 @@ serviceAccount*.json
 *-firebase-adminsdk-*.json
 firebase-debug.log
 .firebase/
+
+# the deck generator pulls pptxgenjs; the .pptx is the deliverable, not its toolchain
+pitch/node_modules/
+pitch/package-lock.json
+pitch/*.pdf
