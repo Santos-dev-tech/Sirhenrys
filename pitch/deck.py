@@ -157,6 +157,47 @@ slide(f'''
     <p class="foot accent">Every one of these is built and running today. Not one is a roadmap item.</p>
   </div>''')
 
+# 11b — built for Kenya
+kenya = [
+    ('M-Pesa at the checkout', 'Not an app rented by the month. The STK push is built in Safaricom&rsquo;s real Daraja shape, and the real failure codes &mdash; cancelled, wrong PIN, timeout, insufficient funds &mdash; are all handled.'),
+    ('WhatsApp on every product', 'Kenya&rsquo;s default channel. &ldquo;Ask about this&rdquo; opens WhatsApp with the garment, size and price already written, to the number of the branch holding it.'),
+    ('Prices in shillings, sizes in your sizes', '46 to 58 for suits. No conversion, no US sizing, no apologising for the currency.'),
+    ('Four branches, four phone numbers', 'A customer in Mombasa reaches Nyali Centre, not a head office.'),
+]
+ls = ''.join(f'<li><span class="n">{i+1}</span><div><h3>{t}</h3><p>{d}</p></div></li>'
+             for i, (t, d) in enumerate(kenya))
+slide(f'''
+  <div class="pad narrow">
+    <p class="eyebrow">Why this, and not a template</p>
+    <h2 class="display">Built for <em>here</em></h2>
+    <p class="sub">A global platform treats Kenya as an export market. This was written for it.</p>
+    <ol class="numbered tight">{ls}</ol>
+  </div>''')
+
+# 11c — one shop, every device
+slide(f'''
+  <div class="split">
+    <div class="split-txt">
+      <p class="eyebrow">The part nobody demonstrates</p>
+      <h2 class="display">One shop,<br>every device</h2>
+      <p class="sub">Ring up a sale on the till at Kimathi Street. The stock changes on a
+        phone in Westgate before the customer has put their card away.</p>
+      <ol class="numbered tight">
+        <li><span class="n">1</span><div><h3>Orders, stock and alterations are shared</h3>
+          <p>Every screen in every branch sees the same figures, the moment they change.</p></div></li>
+        <li><span class="n">2</span><div><h3>Baskets and logins are not</h3>
+          <p>Deliberately. Sharing those would put one customer&rsquo;s basket on another
+             customer&rsquo;s phone, and sign the till in at four branches at once.</p></div></li>
+        <li><span class="n">3</span><div><h3>It keeps selling when the line drops</h3>
+          <p>The till works offline and reconciles when the connection returns. A Safaricom
+             outage should not close a shop.</p></div></li>
+      </ol>
+      <p class="say"><span>Say this</span>Do this one live. Hand them your phone, ring up a
+        sale on the laptop, and let them watch the number change in their hand.</p>
+    </div>
+    <div class="split-img"><img src="{IMG['store']}" alt=""></div>
+  </div>''', 'nopad')
+
 # 12 — the money
 slide(f'''
   <div class="pad">
@@ -193,6 +234,47 @@ slide(f'''
     </div>
     <p class="foot accent">You save between KSh 17,000 and KSh 60,000 every month, and gain
       six things you cannot currently buy.</p>
+  </div>''')
+
+# 12b — what the monthly actually buys
+buys = [
+    ('Hosting and the running costs', 'The site, the database, the images. No separate bill from anyone.'),
+    ('Every update, included', 'New features, fixes and improvements as they are built. You are not quoted for each one.'),
+    ('Support when something breaks', 'Same day on anything that stops you selling.'),
+    ('Changes to the shop', 'New products, price changes, a seasonal front page &mdash; part of the month, not extra.'),
+    ('Four branches or fourteen', 'No per-store charge, ever. Opening a fifth shop costs nothing in software.'),
+    ('Your data stays yours', 'It lives in a Firebase project in your name. You can take it and go.'),
+]
+cells = ''.join(f'<div class="six"><h3>{t}</h3><p>{d}</p></div>' for t, d in buys)
+slide(f'''
+  <div class="pad">
+    <p class="eyebrow">The monthly, itemised</p>
+    <h2 class="display">What KSh 50,000<br>actually buys</h2>
+    <div class="grid-six">{cells}</div>
+    <p class="foot accent">Shopify charges you per store, per app, and per transaction. This does not.</p>
+  </div>''')
+
+# 12c — optional extras, priced separately
+slide(f'''
+  <div class="pad narrow">
+    <p class="eyebrow">Beyond the monthly</p>
+    <h2 class="display">Things that cost <em>extra</em></h2>
+    <p class="sub">Quoted separately so the monthly stays honest, and so you only pay for
+      what you actually want.</p>
+    <ol class="numbered tight">
+      <li><span class="n">1</span><div><h3>Photography</h3>
+        <p>Your real garments, shot properly. The single biggest visual upgrade available,
+           and the one thing no software can substitute for.</p></div></li>
+      <li><span class="n">2</span><div><h3>A shop assistant that answers questions</h3>
+        <p>Ask it what to move between branches this week, or have it draft the reply to a
+           corporate enquiry. Built and running in the console, still being made fast enough
+           for a shop floor. Priced on its own because it costs money every time it is asked.</p></div></li>
+      <li><span class="n">3</span><div><h3>Turning every garment, not one</h3>
+        <p>Each 360 turnaround is generated per garment. One is done; nineteen is a
+           separate line.</p></div></li>
+      <li><span class="n">4</span><div><h3>Your own domain and email</h3>
+        <p>sirhenrys.co.ke pointed at the new shop, with mail to match.</p></div></li>
+    </ol>
   </div>''')
 
 # 13 — year one
@@ -237,6 +319,26 @@ slide(f'''
     <p class="sub">You will ask this eventually, so here it is first.</p>
     <ol class="numbered tight">{ls}</ol>
     <p class="foot accent">Anyone who tells you a system is finished has not built one.</p>
+  </div>''')
+
+# 14b — what you own
+slide(f'''
+  <div class="pad narrow">
+    <p class="eyebrow">The question nobody asks out loud</p>
+    <h2 class="display">What happens<br>if you stop paying me</h2>
+    <ol class="numbered tight">
+      <li><span class="n">1</span><div><h3>The shop is yours, not rented</h3>
+        <p>The code, the catalogue, the orders, the customer list. All of it sits in accounts
+           in your name &mdash; not mine.</p></div></li>
+      <li><span class="n">2</span><div><h3>Nothing switches off</h3>
+        <p>Stop the monthly and the shop keeps running. What stops is me: updates, changes
+           and support.</p></div></li>
+      <li><span class="n">3</span><div><h3>Any developer can pick it up</h3>
+        <p>It is ordinary HTML, CSS and JavaScript with no framework to learn, and every
+           decision in it is written down. You are not hostage to one person&rsquo;s habits.</p></div></li>
+    </ol>
+    <p class="foot accent">Shopify stops the day you stop paying. That is the difference
+      between owning a shop and renting one.</p>
   </div>''')
 
 # 15 — four weeks
