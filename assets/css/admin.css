@@ -173,16 +173,24 @@
   color:var(--invert-fg);padding:12px 22px;font-size:11.5px;letter-spacing:.1em;z-index:200;transition:.3s;
   text-transform:uppercase;font-weight:600}
 .ad .notice.on{transform:translateX(-50%)}
+/* These were unscoped - .shell, .side, .cols, .main and .mtoggle with no .ad in
+   front of them, in the one file that must never reach outside the console. Nothing
+   in the storefront happens to carry those names today, so it never showed; it was a
+   name collision waiting to be introduced. Scoped now, like everything else here.
+   The sidebar is also capped against the viewport: 236px is narrower than any phone
+   in use, but a drawer that cannot be wider than the screen is one less thing that
+   can drag the layout viewport out. */
 @media(max-width:940px){
   :root{--side:0px}
-  .shell{grid-template-columns:1fr}
-  .side{position:fixed;left:0;top:0;width:236px;z-index:110;transform:translateX(-100%);transition:.3s}
-  .side.on{transform:none}
-  .cols{grid-template-columns:1fr}
-  .main{padding:20px 16px 60px}
+  .ad .shell{grid-template-columns:1fr}
+  .ad .side{position:fixed;left:0;top:0;width:min(236px,84%);z-index:110;
+    transform:translateX(-100%);transition:.3s;overscroll-behavior:contain}
+  .ad .side.on{transform:none}
+  .ad .cols{grid-template-columns:1fr}
+  .ad .main{padding:20px 16px 60px}
 }
 .ad .mtoggle{display:none}
-@media(max-width:940px){.mtoggle{display:inline-flex}}
+@media(max-width:940px){.ad .mtoggle{display:inline-flex}}
 /* ============================================================
    LOGIN GATE
    ============================================================ */

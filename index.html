@@ -97,12 +97,16 @@
 
     <a class="brand" href="#/">SIR HENRY'S<small>Nairobi &middot; Est. 1967</small></a>
 
+    <!-- .on-drawer / .on-drawer-sm step out of the row on a phone because the same
+         destination is in #mnav below. The header row measured 575px wide on a 375px
+         screen with all six here, and a row that cannot shrink drags the whole layout
+         viewport out with it. See the header block in site.css. -->
     <div class="hdr-act">
-      <a class="iconbtn" href="#/search" aria-label="Search">
+      <a class="iconbtn on-drawer-sm" href="#/search" aria-label="Search">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg></a>
-      <a class="iconbtn" href="#/stores" aria-label="Stores">
+      <a class="iconbtn on-drawer" href="#/stores" aria-label="Stores">
         <svg viewBox="0 0 24 24"><path d="M12 21s7-5.4 7-11a7 7 0 10-14 0c0 5.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg></a>
-      <a class="iconbtn" href="#/wishlist" aria-label="Wishlist">
+      <a class="iconbtn on-drawer" href="#/wishlist" aria-label="Wishlist">
         <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 000-7.8z"/></svg></a>
       <a class="signin" href="#/account" data-signin>
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0115 0"/></svg>
@@ -208,6 +212,11 @@
   <a href="#/lookbook">Lookbook</a>
   <a href="#/search">Search</a>
   <a href="#/appointments">Book a Fitting</a>
+  <!-- Wishlist and Account are here because the header drops them on a phone.
+       If either is ever removed from this list, un-drop it in site.css first or the
+       page becomes the only way to reach it. -->
+  <a href="#/wishlist">Wishlist</a>
+  <a href="#/account">Account</a>
   <a href="#/stores">Stores</a>
   <a href="#/about">About</a>
   <a href="#/contact">Contact</a>
