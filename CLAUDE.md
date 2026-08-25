@@ -33,6 +33,8 @@ Run these before saying anything is finished. Each exits with its failure count.
 | `node tools/watest.js` | 10 checks — the WhatsApp channel |
 | `node tools/googletest.js` | 10 checks — Continue with Google, and the CSP/COOP it needs |
 | `node tools/toasttest.js` | 7 checks — the console toast, and the banner it collided with |
+| `node tools/vptest.js` | the layout viewport equals the phone's width, 5 widths, both halves |
+| `node tools/stickytest.js` | the sticky header and the scroller survived `overflow-x:clip` |
 | `python tools/secretscan.py --history` | credentials, working tree and every commit |
 | `python tools/depscan.py` | vendored libraries against their recorded hashes |
 
@@ -43,6 +45,7 @@ And the ones that produce something to **look at**, because numbers do not catch
 | `node tools/darkshot.js` | `_shots/dk-*.png`, both halves, dark |
 | `node tools/roomkey.js` | the lookbook in both themes |
 | `node tools/auditshot.js` | everything the security pass added |
+| `node tools/phoneshot.js` | `_shots/ph-*.png`, header and drawer, 3 phone widths, both themes |
 
 **A failing run is not evidence until it survives a clean re-run.** These drive a real
 Chrome against a single-process Python server. On a loaded machine a stalled navigation
@@ -117,6 +120,21 @@ mapped message.
 **`assets/img/room/*.webp` and `assets/spin/*/cut/*.webp` are generated.** Do not hand-edit
 them; run `python tools/matte.py` and `python tools/matte.py --spin`. The head of that file
 explains why the cut is done offline rather than in a shader.
+
+**Never let the header stop shrinking.** It measured 575px wide on a 375px phone and
+mobile Chrome answered by widening the *layout viewport* to 607px. Percentages then
+resolve against 607, so `.mnav{inset:0 30% 0 0}` drew a 425px drawer on a 375px screen -
+a nav wider than the page. `html`/`body` carry `overflow-x:clip` as a backstop (clip, not
+hidden - hidden on one axis forces the other to `auto`, which makes the root a scroll
+container and kills `position:sticky` and Lenis), but the backstop only hides a header
+that has stopped fitting. `tools/vptest.js` is the gate, and it compares `innerWidth`
+against the **device** width - comparing it against the document is what let this sit
+unnoticed, because the viewport had already grown to match.
+
+**Watch what goes in the `pointer:coarse` block.** `.ftr a,.mnav a{display:inline-block}`
+was meant to enlarge tap targets and did the opposite to the drawer: it ran the menu into
+one paragraph and made each target only as wide as its own text. A stacked list wants
+`block`.
 
 **Run `python tools/stamp.py` before every deploy** or the footer's date is one deploy stale.
 

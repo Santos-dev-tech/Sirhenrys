@@ -167,6 +167,18 @@ because a hash router cannot also use the hash for an anchor) and Careers to
 
 ---
 
+## The phone fix, 2026-08-26
+
+The header row would not shrink - 575px of content on a 375px screen - so mobile Chrome
+widened the layout viewport to 607px and the nav drawer, sized at 30% inset, came out
+425px wide on a 375px phone. Fixed by making the row fit: tighter gaps, a scalable
+wordmark, and the four controls already in the drawer stepping out of the header on a
+phone. `html`/`body` carry `overflow-x:clip` as a backstop. Two pre-existing bugs came
+out of it: `.mnav a` was `inline-block` inside the `pointer:coarse` block, which ran the
+whole drawer into one paragraph on every touch device, and `admin.css` had five unscoped
+selectors in its phone media query. Header floor is now 207px. Gates: `tools/vptest.js`
+and `tools/stickytest.js`; look at `tools/phoneshot.js` output.
+
 ## Obsidian
 
 Installed 2026-08-25 via winget at `%LOCALAPPDATA%\Programs\Obsidian\Obsidian.exe`.
