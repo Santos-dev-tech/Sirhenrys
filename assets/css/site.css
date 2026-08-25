@@ -3,12 +3,45 @@
 
 :root{
   --paper:#fff; --bone:#f7f5f2; --bone-2:#efece7;
-  --ink:#151515; --ink-2:#3c3a37; --ink-3:#6f6a65; --ink-4:#9c9691;
+  /* The muted end of this ladder was never accessible. #9c9691 measures 2.92:1 on
+     white, and it carries breadcrumbs, strikethrough prices, table headers and the
+     brand line on every card - so the smallest text on the site was the least
+     readable. Both are darkened enough to clear 4.5:1 on white AND on the bone and
+     gallery grounds they actually sit on, while keeping four distinct steps. */
+  --ink:#151515; --ink-2:#3c3a37; --ink-3:#5f5a55; --ink-4:#726c66;
   --bronze:#846144; --bronze-lt:#a47d5c; --bronze-pale:#f0e8e0;
   --mist:#dad4d0; --line:#e6e2dd;
   --ok:#2f6d4f; --warn:#9a6b1e; --bad:#9b3232;
   --sans:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
   --serif:'Cormorant Garamond',Georgia,serif;
+
+  /* ---- surfaces that are DELIBERATELY the inverse of the page ----
+     The footer, the announcement strip, a filled button, the toast. In the light
+     theme these are dark; the naive dark theme made them light, which is how the
+     footer ended up white text on a white slab. In the dark theme they are a
+     LIFTED panel instead of an inversion - there is nothing left to invert to,
+     and a bright white footer under a dark page is a torch in the face.
+
+     They need their own tokens rather than --ink and --paper for exactly the
+     reason the consent bar did: "inverted" is a relationship to the page, and a
+     token that flips with the page cannot express it. */
+  /* a small FILLED CONTROL - primary button, selected chip, tag, toast */
+  --invert-bg:#151515; --invert-fg:#f2efea;
+  /* a large INVERTED SURFACE - the footer, the announcement strip */
+  --panel-bg:#151515; --panel-fg:#f2efea; --panel-fg-rgb:242,239,234;
+  --panel-mute:#cfcac5;          /* body copy on one */
+  --on-accent:#fff;              /* text sitting on a bronze fill */
+
+  /* ---- washes ----
+     Written as channels because they are used at a dozen alpha values. --scrim is
+     the gradient that keeps the hero headline legible over the models; --glass is
+     the frosted bar the header becomes once it leaves the hero. Both were
+     hard-coded white and cream, so in dark mode the page painted a cream wash
+     under near-white text. */
+  --scrim-rgb:247,245,242;
+  --glass-rgb:255,255,255;
+  --room-bg:#f2f0ec;             /* the WebGL gallery, and the shader's dissolve colour */
+  --room-rgb:242,240,236;        /* the same colour as channels, for the floor fade */
   --wrap:1440px; --pad:clamp(20px,4vw,64px);
   --h:72px;
 }
@@ -33,12 +66,12 @@ p{margin:0 0 1em}
 
 /* ---------- buttons ---------- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.6em;
-  padding:14px 30px;border:1px solid var(--ink);background:var(--ink);color:#fff;
+  padding:14px 30px;border:1px solid var(--invert-bg);background:var(--invert-bg);color:var(--invert-fg);
   font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:600;
   cursor:pointer;transition:.25s ease;border-radius:0}
-.btn:hover{background:var(--bronze);border-color:var(--bronze)}
+.btn:hover{background:var(--bronze);border-color:var(--bronze);color:var(--on-accent)}
 .btn.ghost{background:transparent;color:var(--ink)}
-.btn.ghost:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.ghost:hover{background:var(--invert-bg);color:var(--invert-fg);border-color:var(--invert-bg)}
 .btn.bronze{background:var(--bronze);border-color:var(--bronze)}
 .btn.bronze:hover{background:var(--ink);border-color:var(--ink)}
 .btn.sm{padding:10px 20px;font-size:10px}
@@ -48,7 +81,7 @@ p{margin:0 0 1em}
   letter-spacing:.18em;text-transform:uppercase;font-weight:600}
 
 /* ---------- announcement ---------- */
-.announce{background:var(--ink);color:#fff;font-size:10.5px;letter-spacing:.2em;
+.announce{background:var(--panel-bg);color:var(--panel-fg);font-size:10.5px;letter-spacing:.2em;
   text-transform:uppercase;overflow:hidden;height:36px;display:flex;align-items:center}
 .announce ul{display:flex;gap:64px;list-style:none;margin:0;padding:0;white-space:nowrap;
   animation:marq 38s linear infinite}
@@ -87,7 +120,7 @@ p{margin:0 0 1em}
 
 .iconbtn{background:none;border:0;cursor:pointer;padding:6px;position:relative;display:flex}
 .iconbtn svg{width:19px;height:19px;stroke:var(--ink);fill:none;stroke-width:1.4}
-.badge{position:absolute;top:-2px;right:-4px;background:var(--bronze);color:#fff;font-size:9px;
+.badge{position:absolute;top:-2px;right:-4px;background:var(--bronze);color:var(--on-accent);font-size:9px;
   min-width:16px;height:16px;border-radius:9px;display:grid;place-items:center;font-weight:700;padding:0 4px}
 
 /* mega menu */
@@ -113,15 +146,16 @@ p{margin:0 0 1em}
 /* the models sit right of centre; this keeps the headline legible over them at every width */
 .hero::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;
   background:linear-gradient(100deg,
-    rgba(247,245,242,.97) 0%,
-    rgba(247,245,242,.92) 26%,
-    rgba(247,245,242,.62) 44%,
-    rgba(247,245,242,.12) 62%,
-    rgba(247,245,242,0) 78%)}
+    rgba(var(--scrim-rgb),.97) 0%,
+    rgba(var(--scrim-rgb),.92) 26%,
+    rgba(var(--scrim-rgb),.62) 44%,
+    rgba(var(--scrim-rgb),.12) 62%,
+    rgba(var(--scrim-rgb),0) 78%)}
 @media(max-width:860px){
   .hero img{object-position:78% 24%}
   .hero::before{background:linear-gradient(180deg,
-    rgba(247,245,242,.94) 0%, rgba(247,245,242,.78) 42%, rgba(247,245,242,.30) 72%, rgba(247,245,242,.05) 100%)}
+    rgba(var(--scrim-rgb),.94) 0%, rgba(var(--scrim-rgb),.78) 42%,
+    rgba(var(--scrim-rgb),.30) 72%, rgba(var(--scrim-rgb),.05) 100%)}
 }
 .hero-c{position:relative;z-index:2;width:100%}
 /* .hero-c also carries .wrap, whose margin:0 auto was centring a 620px box in the hero
@@ -149,19 +183,19 @@ p{margin:0 0 1em}
 .card-tags{position:absolute;top:12px;left:12px;display:flex;gap:6px;z-index:2}
 .tag{background:var(--paper);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
   padding:5px 9px;font-weight:700}
-.tag.sale{background:var(--bronze);color:#fff}
-.tag.new{background:var(--ink);color:#fff}
-.card-fav{position:absolute;top:10px;right:10px;z-index:3;background:rgba(255,255,255,.9);
+.tag.sale{background:var(--bronze);color:var(--on-accent)}
+.tag.new{background:var(--invert-bg);color:var(--invert-fg)}
+.card-fav{position:absolute;top:10px;right:10px;z-index:3;background:rgba(var(--glass-rgb),.9);
   border:0;width:32px;height:32px;display:grid;place-items:center;cursor:pointer;transition:.2s}
 .card-fav svg{width:15px;height:15px;stroke:var(--ink);fill:none;stroke-width:1.5}
 .card-fav.on svg{fill:var(--bronze);stroke:var(--bronze)}
-.card-sizes{position:absolute;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);
+.card-sizes{position:absolute;left:0;right:0;bottom:0;background:rgba(var(--glass-rgb),.96);
   padding:11px;display:flex;gap:7px;justify-content:center;flex-wrap:wrap;
   transform:translateY(101%);transition:.3s;z-index:2}
 .card:hover .card-sizes{transform:translateY(0)}
 .card-sizes button{border:1px solid var(--line);background:none;font-size:10.5px;padding:5px 9px;
   cursor:pointer;font-weight:600;letter-spacing:.06em;transition:.15s}
-.card-sizes button:hover:not(:disabled){background:var(--ink);color:#fff;border-color:var(--ink)}
+.card-sizes button:hover:not(:disabled){background:var(--invert-bg);color:var(--invert-fg);border-color:var(--invert-bg)}
 .card-sizes button:disabled{color:var(--ink-4);text-decoration:line-through;cursor:not-allowed}
 .card-b{padding:14px 2px 0}
 .card-b .bd{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-4);font-weight:600}
@@ -235,7 +269,7 @@ p{margin:0 0 1em}
 .sizes button{min-width:52px;padding:12px 8px;border:1px solid var(--line);background:none;cursor:pointer;
   font-size:12px;font-weight:600;transition:.15s;position:relative}
 .sizes button:hover:not(:disabled){border-color:var(--ink)}
-.sizes button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sizes button.on{background:var(--invert-bg);color:var(--invert-fg);border-color:var(--invert-bg)}
 .sizes button:disabled{color:var(--ink-4);cursor:not-allowed;background:
   linear-gradient(to top left,transparent 47.5%,var(--line) 49%,var(--line) 51%,transparent 52.5%)}
 .row-lbl{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
@@ -298,7 +332,7 @@ p{margin:0 0 1em}
 .tl-s:last-child::before{display:none}
 .tl-s .dot{width:25px;height:25px;border-radius:50%;border:1px solid var(--line);display:grid;
   place-items:center;background:var(--paper);font-size:11px;color:var(--ink-4);z-index:1}
-.tl-s.done .dot{background:var(--bronze);border-color:var(--bronze);color:#fff}
+.tl-s.done .dot{background:var(--bronze);border-color:var(--bronze);color:var(--on-accent)}
 .tl-s.now .dot{border-color:var(--ink);color:var(--ink);font-weight:700}
 .tl-s b{font-size:12.5px;display:block}
 .tl-s span{font-size:12px;color:var(--ink-3)}
@@ -308,11 +342,11 @@ p{margin:0 0 1em}
 .mtm-stage{background:var(--bone);aspect-ratio:3/4;position:relative;overflow:hidden;display:grid;place-items:center}
 .mtm-stage img{width:100%;height:100%;object-fit:cover}
 .mtm-chip{position:absolute;left:18px;bottom:18px;width:54px;height:54px;
-  border:2px solid rgba(255,255,255,.9);box-shadow:0 4px 18px rgba(0,0,0,.25);transition:background .4s}
+  border:2px solid rgba(var(--glass-rgb),.9);box-shadow:0 4px 18px rgba(0,0,0,.25);transition:background .4s}
 .mtm-panel{border:1px solid var(--line);padding:26px}
 .opts{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:20px}
 .opt{border:1px solid var(--line);padding:9px 14px;font-size:11.5px;cursor:pointer;background:none;transition:.15s;font-weight:500}
-.opt.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.opt.on{background:var(--invert-bg);color:var(--invert-fg);border-color:var(--invert-bg)}
 .sw{width:38px;height:38px;border:1px solid var(--line);cursor:pointer;padding:0;transition:.15s}
 .sw.on{outline:2px solid var(--ink);outline-offset:2px}
 .build{border-top:1px solid var(--line);margin-top:20px;padding-top:18px;font-size:13px}
@@ -327,10 +361,10 @@ p{margin:0 0 1em}
   border-bottom:1px solid var(--line);margin-bottom:32px}
 .chip{border:1px solid var(--line);background:none;padding:9px 16px;font-size:11px;cursor:pointer;
   letter-spacing:.1em;text-transform:uppercase;font-weight:600;transition:.15s}
-.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chip.on{background:var(--invert-bg);color:var(--invert-fg);border-color:var(--invert-bg)}
 .empty{text-align:center;padding:90px 20px;color:var(--ink-3)}
 .notice{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(140%);
-  background:var(--ink);color:#fff;padding:14px 26px;font-size:12px;letter-spacing:.1em;z-index:200;
+  background:var(--invert-bg);color:var(--invert-fg);padding:14px 26px;font-size:12px;letter-spacing:.1em;z-index:200;
   transition:.35s;text-transform:uppercase;font-weight:600}
 .notice.on{transform:translateX(-50%)}
 .wa{position:fixed;right:22px;bottom:22px;width:52px;height:52px;border-radius:50%;background:#25D366;
@@ -339,24 +373,24 @@ p{margin:0 0 1em}
 .wa svg{width:27px;height:27px;fill:#fff}
 
 /* ---------- footer ---------- */
-.ftr{background:var(--ink);color:#cfcac5;padding:clamp(48px,7vw,86px) 0 30px;margin-top:0}
+.ftr{background:var(--panel-bg);color:var(--panel-mute);padding:clamp(48px,7vw,86px) 0 30px;margin-top:0}
 .ftr-top{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:40px;padding-bottom:46px;
-  border-bottom:1px solid rgba(255,255,255,.13)}
-.ftr h4{color:#fff;font-size:10px;letter-spacing:.24em;text-transform:uppercase;margin-bottom:18px}
+  border-bottom:1px solid rgba(var(--panel-fg-rgb),.15)}
+.ftr h4{color:var(--panel-fg);font-size:10px;letter-spacing:.24em;text-transform:uppercase;margin-bottom:18px}
 .ftr ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .ftr a{font-size:13px}
 .ftr a:hover{color:var(--bronze-lt)}
-.ftr-brand b{color:#fff;font-size:19px;letter-spacing:.22em;font-weight:800;display:block;margin-bottom:14px}
+.ftr-brand b{color:var(--panel-fg);font-size:19px;letter-spacing:.22em;font-weight:800;display:block;margin-bottom:14px}
 .ftr-brand p{font-size:13px;max-width:34ch;line-height:1.7}
 .sub{display:flex;margin-top:20px;max-width:330px}
-.sub input{flex:1;background:transparent;border:1px solid rgba(255,255,255,.25);padding:12px 14px;
-  color:#fff;font-size:13px}
-.sub input::placeholder{color:#8b8580}
-.sub button{background:var(--bronze);border:1px solid var(--bronze);color:#fff;padding:0 20px;cursor:pointer;
+.sub input{flex:1;background:transparent;border:1px solid rgba(var(--panel-fg-rgb),.28);padding:12px 14px;
+  color:var(--panel-fg);font-size:13px}
+.sub input::placeholder{color:rgba(var(--panel-fg-rgb),.55)}
+.sub button{background:var(--bronze);border:1px solid var(--bronze);color:var(--on-accent);padding:0 20px;cursor:pointer;
   font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700}
 .ftr-bot{display:flex;justify-content:space-between;gap:20px;padding-top:26px;font-size:11.5px;flex-wrap:wrap}
 .pays{display:flex;gap:10px}
-.pays span{border:1px solid rgba(255,255,255,.22);padding:4px 9px;font-size:9px;letter-spacing:.1em;font-weight:700}
+.pays span{border:1px solid rgba(var(--panel-fg-rgb),.26);padding:4px 9px;font-size:9px;letter-spacing:.1em;font-weight:700}
 
 /* ---------- responsive ---------- */
 @media(max-width:1080px){
@@ -404,7 +438,7 @@ p{margin:0 0 1em}
 
 /* header condenses once you leave the hero */
 .hdr{transition:height .35s cubic-bezier(.4,0,.2,1),background .35s,border-color .35s}
-.hdr.shrunk{background:rgba(255,255,255,.86);backdrop-filter:saturate(1.4) blur(14px)}
+.hdr.shrunk{background:rgba(var(--glass-rgb),.86);backdrop-filter:saturate(1.4) blur(14px)}
 .hdr.shrunk .hdr-in{height:56px}
 .hdr-in{transition:height .35s cubic-bezier(.4,0,.2,1)}
 
@@ -496,7 +530,7 @@ p{margin:0 0 1em}
 .anat-step p{font-size:13.5px;line-height:1.75;color:var(--ink-2);margin-bottom:18px}
 .anat-cap{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-4);font-weight:600}
 .anat-count{position:absolute;right:var(--pad);bottom:34px;z-index:3;
-  font-size:10px;letter-spacing:.24em;color:#6b635a;font-weight:600}
+  font-size:10px;letter-spacing:.24em;color:var(--ink-3);font-weight:600}
 .anat-rule{position:absolute;left:var(--pad);right:var(--pad);bottom:30px;height:1px;
   background:var(--line);z-index:3}
 .anat-rule i{position:absolute;left:0;top:0;bottom:0;background:var(--bronze);
@@ -520,7 +554,15 @@ p{margin:0 0 1em}
 }
 
 /* ---------- the collection room (white, WebGL) ---------- */
-.room{position:relative;background:#f2f0ec;overflow:hidden}
+/* --room-bg is read by BOTH this rule and the shader in motion.js, which mixes
+   distant figures into the same colour so they dissolve into the room instead of
+   ending on a hard plane edge. Change it in one place or they disagree. */
+.room{position:relative;background:var(--room-bg);overflow:hidden}
+/* There was a gradient over the bottom of the room here, to hide the studio floor
+   and the cast shadow that the runtime chroma key could not remove cleanly. It is
+   gone: the plates arrive cut, so there is no floor to hide - and the fade was
+   taking the bottom of the outfit with it, which in a lookbook is the fault rather
+   than the fix. See tools/matte.py. */
 .room-canvas{display:block;width:100%;height:100vh;cursor:grab;touch-action:none}
 .room-canvas.grabbing{cursor:grabbing}
 .room-hd{position:absolute;top:clamp(28px,5vh,56px);left:var(--pad);z-index:3;pointer-events:none}
@@ -549,8 +591,8 @@ p{margin:0 0 1em}
 @media(max-width:860px){.anat-cue{bottom:auto;top:14vh}}
 
 /* header inverts over the dark anatomy stage instead of sitting on it as a white bar */
-.hdr.on-dark{background:rgba(255,255,255,.86);backdrop-filter:saturate(1.2) blur(16px);
-  border-bottom-color:rgba(255,255,255,.08)}
+.hdr.on-dark{background:rgba(var(--glass-rgb),.86);backdrop-filter:saturate(1.2) blur(16px);
+  border-bottom-color:rgba(var(--panel-fg-rgb),.08)}
 .hdr.on-dark .brand,.hdr.on-dark .nav a,.hdr.on-dark .navitem > a{color:var(--ink)}
 .hdr.on-dark .brand small{color:var(--bronze)}
 .hdr.on-dark .iconbtn svg{stroke:var(--ink)}
@@ -630,7 +672,10 @@ html:not(.js) [data-reveal]{opacity:1 !important;transform:none !important;clip-
 .split-c p{font-size:14.5px;line-height:1.75}
 
 /* a slow marquee band separates the commerce half from the editorial half */
-.band{background:var(--ink);color:var(--bone);overflow:hidden;padding:clamp(26px,3vw,44px) 0}
+/* A full-width band is a large inverted surface, not a filled control, so it
+   takes the panel pair. Written as --ink/--bone it inverted into a bright strip
+   across a dark page - readable, and still wrong. */
+.band{background:var(--panel-bg);color:var(--panel-fg);overflow:hidden;padding:clamp(26px,3vw,44px) 0}
 .band-track{display:flex;gap:64px;white-space:nowrap;width:max-content;
   animation:bandrun 34s linear infinite}
 .band span{font-family:var(--serif);font-style:italic;font-weight:300;

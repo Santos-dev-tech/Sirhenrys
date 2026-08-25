@@ -1,0 +1,77 @@
+{
+  "//": [
+    "The dependency inventory. Every third-party file this site serves, with the",
+    "version it is, the hash it should have, and the date somebody last checked it",
+    "against the advisories. tools/depscan.py reads this.",
+    "",
+    "A vendored file has one advantage over a CDN - nobody else can change it - and",
+    "one disadvantage - nobody else will patch it either. This file is what turns the",
+    "disadvantage back into a task with a date on it.",
+    "",
+    "sha256 is not decoration: it is checked on every run, so a modified library in",
+    "the working tree, in a deploy, or in a pull request shows up as a failure rather",
+    "than as nothing at all."
+  ],
+  "checked": "2026-08-24",
+  "libraries": [
+    {
+      "file": "assets/js/vendor/firebase-app-compat.js",
+      "name": "firebase-js-sdk (app-compat)",
+      "version": "10.14.1",
+      "latest_known": "12.0.0",
+      "sha256": "2ac3f051aa8c357f050c18b6a8d57867f59ed85b61949acf21142139581f5cc4",
+      "source": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js",
+      "note": "Behind by two majors. Nothing in the app uses an API that changed, so the upgrade is a swap of seven files and a re-run of tools/mergetest.js and tools/authtest.js."
+    },
+    {
+      "file": "assets/js/vendor/firebase-auth-compat.js",
+      "name": "firebase-js-sdk (auth-compat)",
+      "version": "10.14.1",
+      "latest_known": "12.0.0",
+      "sha256": "444be4c9e8bb4d16d2778177bb35fcad0f7b5b3927a81e6095a4978bad324572",
+      "source": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"
+    },
+    {
+      "file": "assets/js/vendor/firebase-firestore-compat.js",
+      "name": "firebase-js-sdk (firestore-compat)",
+      "version": "10.14.1",
+      "latest_known": "12.0.0",
+      "sha256": "a0f75faf230ae93e1618625b89d32497fed320eae790227c06aace4fc127d9ae",
+      "source": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"
+    },
+    {
+      "file": "assets/js/vendor/firebase-app-check-compat.js",
+      "name": "firebase-js-sdk (app-check-compat)",
+      "version": "10.14.1",
+      "latest_known": "12.0.0",
+      "sha256": "ab1b63a9da4d418fee727518b6487c6021d1404bc2b58eac1499323334e17f83",
+      "source": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js"
+    },
+    {
+      "file": "assets/js/vendor/firebase-analytics-compat.js",
+      "name": "firebase-js-sdk (analytics-compat)",
+      "version": "10.14.1",
+      "latest_known": "12.0.0",
+      "sha256": "f65efe5bbacf58be7e2a3025369b26d02a184724a059cf5ec6e5c3b8829f30ad",
+      "source": "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics-compat.js",
+      "note": "Loaded only if a visitor accepts measurement in the consent banner. Not referenced from index.html."
+    },
+    {
+      "file": "assets/js/vendor/lenis.min.js",
+      "name": "lenis",
+      "version": "1.3.26",
+      "latest_known": "1.3.26",
+      "sha256": "53195c9797e7ce7bf9d7fa9242b08209e57f46de4c9dac126a6494fa780e3346",
+      "source": "https://unpkg.com/lenis@1.3.26/dist/lenis.min.js"
+    },
+    {
+      "file": "assets/js/vendor/three.min.js",
+      "name": "three.js",
+      "version": "r144",
+      "latest_known": "r170",
+      "sha256": "8a5f7249903b54d30f79f708699d2fed2d6a1d0741a4cd41377d1f01bb5a2271",
+      "source": "https://unpkg.com/three@0.144.0/build/three.min.js",
+      "note": "Well behind. It draws one WebGL gallery on the lookbook page and touches no user input, so the exposure is small - but 608KB of unmaintained WebGL is the largest single thing this site serves, and the honest fix is to drop it for a CSS gallery rather than to upgrade it."
+    }
+  ]
+}

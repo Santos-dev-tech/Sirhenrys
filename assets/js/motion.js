@@ -160,15 +160,13 @@ window.Motion = (() => {
     uniform float uHover;
     uniform float uFocus;      // 1 at the centre of the rail, 0 far away
     uniform vec3  uBg;         // page background, what distant figures dissolve into
-    uniform vec3  uKey;        // this plate's studio ground colour
-    uniform float uKeyLo;      // distance where the key starts to open
-    uniform float uKeyHi;      // distance where the pixel is fully opaque
+    uniform float uReady;      // 0 until the texture has actually arrived
     varying vec2 vUv;
 
     // Eight photographed angles read as a slideshow if you cut between them. Mixing the
     // two either side of a fractional position turns the 45-degree step into a dissolve.
-    vec3 plate(vec2 uv){
-      return mix(texture2D(uTex, uv).rgb, texture2D(uTex2, uv).rgb, uMix);
+    vec4 plate(vec2 uv){
+      return mix(texture2D(uTex, uv), texture2D(uTex2, uv), uMix);
     }
 
     vec2 coverUv(vec2 uv){
@@ -187,16 +185,25 @@ window.Motion = (() => {
       // Fringing should read as motion, never as a defect, so it is scaled by focus:
       // the garment you are looking at stays clean, only the passing ones smear.
       float shift = clamp(uVel * 0.0012, -0.0022, 0.0022) * (1.0 - uFocus * 0.75);
+      vec4 mid = plate(uv);
       vec3 c;
       c.r = plate(uv + vec2(shift, 0.0)).r;
-      c.g = plate(uv).g;
+      c.g = mid.g;
       c.b = plate(uv - vec2(shift, 0.0)).b;
 
-      // Chroma key against this plate's OWN sampled studio ground rather than a fixed
-      // luminance. The generated backgrounds are mid-grey gradients, not white, and they
-      // differ per plate, so a fixed threshold either keeps the rectangle or eats the suit.
-      float d    = distance(c, uKey);
-      float keep = smoothstep(uKeyLo, uKeyHi, d);
+      // The plates arrive cut. There is nothing to key: the matte was computed once,
+      // offline, by region growing from the border - which handles the ground's
+      // gradient, the cast shadow and a light garment all at once, none of which a
+      // per-pixel colour test at runtime ever managed together.
+      float keep = mid.a;
+
+
+      /* Whatever the key does not fully remove is pushed toward the page colour, in
+         proportion to how nearly it was removed. A pixel the key was unsure about
+         therefore arrives as the colour of the room rather than as a bright edge -
+         so the residue is correct in whichever theme is on, which a fixed colour
+         could never be. This is what actually kills the halo. */
+      c = mix(uBg, c, smoothstep(0.0, 0.30, keep));
 
       // recede: distant figures desaturate and wash toward the page colour
       float g = dot(c, vec3(0.299, 0.587, 0.114));
@@ -204,20 +211,26 @@ window.Motion = (() => {
       c = mix(uBg, c, mix(0.16, 1.0, uFocus));
       c *= mix(0.97, 1.03, uHover);
 
-      // The plates are photographs with a soft vignette, so a colour key alone still leaves
-      // a faint rectangle on the focused garment. Feather the plane's own border as well:
-      // the figure sits centrally, so this only ever eats empty studio ground.
-      float ex = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x);
-      float ey = smoothstep(0.0, 0.09, vUv.y) * smoothstep(1.0, 0.94, vUv.y);
-
-      float a = keep * mix(0.35, 1.0, uFocus) * ex * ey;
+      /* No feather. It existed to hide the edges of a rectangle that a colour key
+         could not fully remove; a cut plate has no rectangle, and eating 18% of the
+         plane's width and the bottom fifth of it was cropping the shoes off the
+         outfit - which is the whole point of a lookbook. */
+      float a = keep * mix(0.35, 1.0, uFocus) * uReady;
       if (a < 0.01) discard;
       gl_FragColor = vec4(c, a);
     }`;
 
-  /* Read the studio ground colour straight off the plate: sample the top edge and the
-     upper corners, where no garment ever reaches, and take the median so one stray dark
-     pixel cannot drag the key. Returns normalised rgb. */
+  /* Read the studio ground off the plate as a GRADIENT, not a colour.
+
+     Measured across the real plates, the ground runs 15 to 30 levels darker at the
+     floor than at the top, and every plate is different. One median gives a key
+     that is right at one height and wrong everywhere else - which left a pale
+     rectangle under every model.
+
+     Two medians: the top band and the upper side margins for the top colour, the
+     lower side margins and the floor for the bottom. Medians rather than means so
+     one stray dark pixel of a shoe cannot drag either. Returns two normalised
+     triples. */
   const groundCache = new Map();
   function sampleGround(img) {
     const src = img.currentSrc || img.src;
@@ -229,16 +242,41 @@ window.Motion = (() => {
       const g = c.getContext('2d', { willReadFrequently: true });
       g.drawImage(img, 0, 0, W, H);
       const d = g.getImageData(0, 0, W, H).data;
-      const pick = [];
-      for (let x = 0; x < W; x++) { pick.push((0 * W + x) * 4); pick.push((1 * W + x) * 4); }
-      for (let y = 0; y < H * 0.35; y++) { pick.push((y * W) * 4); pick.push((y * W + W - 1) * 4); }
-      const rs = [], gs = [], bs = [];
-      pick.forEach(i => { rs.push(d[i]); gs.push(d[i + 1]); bs.push(d[i + 2]); });
+
       const med = a => { a.sort((x, y) => x - y); return a[a.length >> 1] / 255; };
-      const out = [med(rs), med(gs), med(bs)];
+      const medianOf = idx => {
+        const rs = [], gs = [], bs = [];
+        idx.forEach(i => { rs.push(d[i]); gs.push(d[i + 1]); bs.push(d[i + 2]); });
+        return [med(rs), med(gs), med(bs)];
+      };
+
+      const topIdx = [], botIdx = [];
+      for (let x = 0; x < W; x++) {                       // the top two rows
+        topIdx.push((0 * W + x) * 4); topIdx.push((1 * W + x) * 4);
+      }
+      for (let y = 0; y < H * 0.30; y++) {                // upper side margins
+        topIdx.push((y * W) * 4); topIdx.push((y * W + W - 1) * 4);
+      }
+      for (let y = Math.floor(H * 0.72); y < H; y++) {    // lower side margins
+        botIdx.push((y * W) * 4); botIdx.push((y * W + W - 1) * 4);
+      }
+      for (let x = 0; x < W; x++) {                       // and the floor itself
+        botIdx.push(((H - 1) * W + x) * 4); botIdx.push(((H - 2) * W + x) * 4);
+      }
+
+      const out = { top: medianOf(topIdx), bot: medianOf(botIdx) };
       groundCache.set(src, out);
       return out;
     } catch (e) { return null; }   // tainted canvas (cross-origin): keep the default
+  }
+
+  /* Hand a sampled ground to a material. Separate from the loader callback because
+     the callback can fire before the material exists (a cached texture loads
+     synchronously) and after (a cold one does not), and both paths have to work. */
+  function applyGround(mat, ground, aspect) {
+    if (!mat) return;
+    if (aspect) mat.uniforms.uImageAspect.value = aspect;
+    mat.uniforms.uReady.value = 1;
   }
 
   const RAIL_TURN_SECONDS = 12;       // one revolution on the rail, at any frame count
@@ -272,18 +310,29 @@ window.Motion = (() => {
       this.camera = new THREE.PerspectiveCamera(38, aspect, 0.1, 100);
       this.camera.position.z = 13;
 
-      const bg = new THREE.Color(0xf2f0ec);
+      // Read the room's colour from the stylesheet rather than repeating it here.
+      // The CSS paints the page behind the canvas and the shader dissolves distant
+      // figures into the same value; two literals would drift the first time the
+      // theme changed, and did.
+      const bg = new THREE.Color(roomBg());
       const loader = new THREE.TextureLoader();
       const planeH = frustum * 0.78;
       this.meshes = this.items.map((it, i) => {
         const planeW = planeH * 0.75;                       // 3:4 portrait
         const geo = new THREE.PlaneGeometry(planeW, planeH, 26, 26);
+        /* The onLoad callback used to reach forward to `mat`, which is declared with
+           const twenty lines below it. A texture served from cache fires onLoad
+           synchronously, and reaching a const before its initialiser is a
+           ReferenceError - so on a warm reload the ground was never sampled and the
+           key ran against its default for the whole session. Hold the result and
+           apply it once the material exists. */
+        let ground = null, aspect = null;
         const tex = loader.load(it.src, t => {
           t.minFilter = THREE.LinearFilter;
           t.generateMipmaps = false;
-          mat.uniforms.uImageAspect.value = t.image.width / t.image.height;
-          const k = sampleGround(t.image);
-          if (k) mat.uniforms.uKey.value.set(k[0], k[1], k[2]);
+          aspect = t.image.width / t.image.height;
+          ground = sampleGround(t.image);
+          if (mat) applyGround(mat, ground, aspect);
         });
         tex.colorSpace = THREE.SRGBColorSpace || undefined;
         // A garment with a photographed turnaround carries all its angles into the room,
@@ -304,12 +353,14 @@ window.Motion = (() => {
             uImageAspect: { value: 0.75 },
             uHover: { value: 0 },
             uBg: { value: new THREE.Vector3(bg.r, bg.g, bg.b) },
-            uKey: { value: new THREE.Vector3(0.93, 0.92, 0.90) },
-            uKeyLo: { value: 0.055 },
-            uKeyHi: { value: 0.17 }
+            // uReady keeps a plate invisible until its texture lands, rather than
+            // drawing an empty black frame at full opacity.
+            uReady: { value: 0 }
           },
           depthWrite: false
         });
+        // the texture may already have arrived while the material was being built
+        if (ground || aspect) applyGround(mat, ground, aspect);
         const mesh = new THREE.Mesh(geo, mat);
         mesh.userData = { index: i, item: it, spinTex, spinShown: -1, baseTex: tex };
         this.scene.add(mesh);
@@ -461,6 +512,24 @@ window.Motion = (() => {
   }
 
   let rail = null;
+  // --room-bg lives in site.css and flips with the theme.
+  function roomBg() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--room-bg').trim();
+    return v || '#f2f0ec';
+  }
+
+  /* Called when the theme changes. The room is a live WebGL scene, so it cannot be
+     re-read from CSS by a repaint the way everything else on the page is - the
+     dissolve colour is a uniform and has to be handed over. */
+  function retheme() {
+    if (!rail || !rail.meshes) return;
+    const c = new THREE.Color(roomBg());
+    rail.meshes.forEach(m => {
+      const u = m.material && m.material.uniforms;
+      if (u && u.uBg) u.uBg.value.set(c.r, c.g, c.b);
+    });
+  }
+
   function mountRail(canvas, items, onPick) {
     unmountRail();
     if (!canvas || !hasThree() || reduced) return null;
@@ -500,6 +569,7 @@ window.Motion = (() => {
     let camX = 50, camY = 50, camZ = 1;
 
     // decode the frames up front so scrubbing never waits on a fetch
+
     frames.forEach(f => { if (f.decode) f.decode().catch(() => {}); });
 
     const tick = (now) => {
@@ -705,7 +775,10 @@ window.Motion = (() => {
     refresh();
   }
 
-  return { boot, refresh, mountRail, unmountRail, rail: () => rail,
+  return { boot, refresh, mountRail, unmountRail, rail: () => rail, retheme,
+           // ux.js reads the live scroll position from here: Lenis owns the scroll on
+           // this site, so window.scrollY is stale by up to a frame and a half.
+           lenis: () => lenis,
            mountAnatomy, unmountAnatomy,
            mountSpinners, unmountSpinners,
            transition, scrollTo, stopScroll, startScroll, reduced };

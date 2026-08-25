@@ -1,0 +1,414 @@
+/* ---------------------------------------------------------------------------
+   Sir Henry's - the interface layer that sits on top of both halves.
+
+   Its own file rather than an addition to either of the other two, for one
+   reason: admin.css is scoped under .ad and site.css is not, and the things in
+   here - the theme, the consent banner, the confirm dialog, the toasts - belong
+   to the page, not to either app. Adding them to admin.css would mean writing
+   unscoped rules into the file whose whole discipline is that it has none.
+
+   The dark palette is a variable swap and nothing else. Both stylesheets already
+   define every colour as a custom property on their own root (:root for the
+   storefront, .ad for the console), so a theme is thirty lines rather than a
+   second stylesheet, and nothing can drift out of step.
+--------------------------------------------------------------------------- */
+
+/* ---------- dark theme ----------
+   Three states, and the order matters. Bare :root is the light palette that
+   site.css already ships. The media query catches a visitor whose system is dark
+   and who has never touched the toggle. The explicit attribute wins over both, in
+   both directions, so choosing light on a dark laptop actually gives light. */
+
+:root[data-theme="dark"]{
+  /* ---- ground ----
+     Three levels, not one. #0f0e0d is the page, #171512 a raised card, #201d1a a
+     card on a card (a drawer over a panel, an input inside a panel). Warm rather
+     than neutral: this is a menswear house, and a blue-grey dark theme makes navy
+     cloth look black and camel look dead. */
+  --paper:#0f0e0d; --bone:#171512; --bone-2:#201d1a;
+
+  /* ---- text ----
+     --ink-3 and --ink-4 are LIFTED well above their light-theme mirrors. On white,
+     #6f6a65 reads at 5.7:1; the naive dark mirror of it landed at 2.8:1 and took
+     every caption, breadcrumb, strikethrough price and table header with it. */
+  --ink:#f3f0eb; --ink-2:#d9d4cc; --ink-3:#b0a99f; --ink-4:#948d83;
+
+  /* ---- accent ----
+     The bronze is brightened. #846144 on near-black is 3.1:1 - fine for a border,
+     not for the link text and small caps it is actually used on. */
+  --bronze:#cda274; --bronze-lt:#e0c09a; --bronze-pale:#2a211a;
+
+  --mist:#3b3733; --line:#2c2825;
+  --ok:#6fc194; --warn:#e0b25c; --bad:#ea8686;
+
+  /* ---- a small filled control ----
+     Stays a TRUE inversion: pale fill, dark text. A primary button or a selected
+     chip rendered as dark-grey-on-dark-grey reads as disabled, and the whole point
+     of the fill is that it does not. */
+  --invert-bg:#f3f0eb; --invert-fg:#141210;
+
+  /* ---- a large inverted surface ----
+     Does NOT invert. A white footer across the bottom of a dark page is a torch in
+     the face, so the footer and the announcement strip become a lifted panel that
+     is still distinct from the page behind them. */
+  --panel-bg:#17150f; --panel-fg:#f3f0eb; --panel-fg-rgb:243,240,235; --panel-mute:#b9b3aa;
+
+  --on-accent:#191510;
+
+  /* ---- washes ----
+     The hero gradient and the frosted header. Both were cream and white, which is
+     how the headline ended up near-white on a near-white wash. */
+  --scrim-rgb:15,14,13;
+  --glass-rgb:17,16,14;
+  /* The gallery is an art-directed white room in the light theme. Dark, it becomes
+     a black-box gallery - the garments are lit plates either way, and this is the
+     one surface where a straight inversion is the right answer rather than a
+     lifted panel. motion.js reads the same value for the shader's dissolve. */
+  --room-bg:#141210; --room-rgb:20,18,16;
+
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .ad{
+  --paper:#17150f; --bone:#0f0e0d; --surface:#17150f;
+  --ink:#f3f0eb; --ink-2:#d9d4cc; --ink-3:#b0a99f; --ink-4:#948d83;
+  --bronze:#cda274; --bronze-lt:#e0c09a; --line:#2c2825;
+  --ok:#6fc194; --ok-bg:#16271d; --warn:#e0b25c; --warn-bg:#2b2315; --bad:#ea8686; --bad-bg:#2c1a1a;
+  --info:#8ab8e4; --info-bg:#152230;
+  --invert-bg:#f3f0eb; --invert-fg:#141210;
+  --panel-bg:#0a0908; --panel-fg:#f3f0eb; --panel-fg-rgb:243,240,235; --panel-mute:#a9a49c;
+  --on-accent:#191510;
+}
+
+/* Photography was shot on white. Left untouched on a dark page every card becomes
+   a lightbox, so the whole grid is taken down a little - not inverted, which would
+   turn a navy suit grey, just dimmed and very slightly de-saturated. */
+/* Photography was shot on white. Left alone on a dark page every card becomes a
+   lightbox, so the grid is taken down a little - not inverted, which would turn a
+   navy suit grey, just dimmed and very slightly de-saturated. The hero and the
+   anatomy plates are exempt: they are already dark and dimming them twice buries
+   the garment. */
+:root[data-theme="dark"] img:not([data-nodim]){ filter: brightness(.88) saturate(.95); }
+:root[data-theme="dark"] .hero img,
+:root[data-theme="dark"] .anat-f,
+:root[data-theme="dark"] .cat img{ filter:none }
+/* .btn needs no rule of its own any more - --invert-bg/--invert-fg already say
+   "pale fill, dark text" in this theme, which is what the first pass was writing
+   out longhand and getting wrong for .ghost. */
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    /* ---- ground ----
+       Three levels, not one. #0f0e0d is the page, #171512 a raised card, #201d1a a
+       card on a card (a drawer over a panel, an input inside a panel). Warm rather
+       than neutral: this is a menswear house, and a blue-grey dark theme makes navy
+       cloth look black and camel look dead. */
+    --paper:#0f0e0d; --bone:#171512; --bone-2:#201d1a;
+
+    /* ---- text ----
+       --ink-3 and --ink-4 are LIFTED well above their light-theme mirrors. On white,
+       #6f6a65 reads at 5.7:1; the naive dark mirror of it landed at 2.8:1 and took
+       every caption, breadcrumb, strikethrough price and table header with it. */
+    --ink:#f3f0eb; --ink-2:#d9d4cc; --ink-3:#b0a99f; --ink-4:#948d83;
+
+    /* ---- accent ----
+       The bronze is brightened. #846144 on near-black is 3.1:1 - fine for a border,
+       not for the link text and small caps it is actually used on. */
+    --bronze:#cda274; --bronze-lt:#e0c09a; --bronze-pale:#2a211a;
+
+    --mist:#3b3733; --line:#2c2825;
+    --ok:#6fc194; --warn:#e0b25c; --bad:#ea8686;
+
+    /* ---- a small filled control ----
+       Stays a TRUE inversion: pale fill, dark text. A primary button or a selected
+       chip rendered as dark-grey-on-dark-grey reads as disabled, and the whole point
+       of the fill is that it does not. */
+    --invert-bg:#f3f0eb; --invert-fg:#141210;
+
+    /* ---- a large inverted surface ----
+       Does NOT invert. A white footer across the bottom of a dark page is a torch in
+       the face, so the footer and the announcement strip become a lifted panel that
+       is still distinct from the page behind them. */
+    --panel-bg:#17150f; --panel-fg:#f3f0eb; --panel-fg-rgb:243,240,235; --panel-mute:#b9b3aa;
+
+    --on-accent:#191510;
+
+    /* ---- washes ----
+       The hero gradient and the frosted header. Both were cream and white, which is
+       how the headline ended up near-white on a near-white wash. */
+    --scrim-rgb:15,14,13;
+    --glass-rgb:17,16,14;
+    /* The gallery, and the shader's dissolve colour, and the floor fade's channels.
+       These were missing from THIS block while the [data-theme="dark"] one had them,
+       so a visitor whose system is dark and who never touched the toggle got a white
+       gallery in a black page. Two blocks that must stay identical is a standing
+       hazard; tools/darktest.js sweeps both states. */
+    --room-bg:#141210; --room-rgb:20,18,16;
+
+    color-scheme: dark;
+  }
+  :root:not([data-theme="light"]) .ad{
+    --paper:#17150f; --bone:#0f0e0d; --surface:#17150f;
+    --ink:#f3f0eb; --ink-2:#d9d4cc; --ink-3:#b0a99f; --ink-4:#948d83;
+    --bronze:#cda274; --bronze-lt:#e0c09a; --line:#2c2825;
+    --ok:#6fc194; --ok-bg:#16271d; --warn:#e0b25c; --warn-bg:#2b2315; --bad:#ea8686; --bad-bg:#2c1a1a;
+    --info:#8ab8e4; --info-bg:#152230;
+    --invert-bg:#f3f0eb; --invert-fg:#141210;
+    --panel-bg:#0a0908; --panel-fg:#f3f0eb; --panel-fg-rgb:243,240,235; --panel-mute:#a9a49c;
+    --on-accent:#191510;
+  }
+  :root:not([data-theme="light"]) img:not([data-nodim]){ filter: brightness(.88) saturate(.95); }
+  :root:not([data-theme="light"]) .hero img,
+  :root:not([data-theme="light"]) .anat-f,
+  :root:not([data-theme="light"]) .cat img{ filter:none }
+}
+
+/* The toggle itself. Sized to match the other header icons exactly - 40px is the
+   tap target the mobile audit settled on, and it sits in the same row. */
+.themebtn{display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;padding:0;border:0;background:none;cursor:pointer;color:inherit}
+.themebtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .35s ease}
+.themebtn:hover svg{transform:rotate(25deg)}
+.themebtn .moon{display:none}
+:root[data-theme="dark"] .themebtn .sun{display:none}
+:root[data-theme="dark"] .themebtn .moon{display:block}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .themebtn .sun{display:none}
+  :root:not([data-theme="light"]) .themebtn .moon{display:block}
+}
+
+/* ---------- skip to content ----------
+   Off screen until it takes focus, which is the only correct way to do this: a
+   visually hidden link that stays hidden on focus helps nobody, and one that is
+   always visible is a design decision nobody asked for. */
+.skip{position:fixed;top:0;left:0;z-index:2000;transform:translateY(-120%);
+  background:var(--ink);color:var(--paper);padding:14px 22px;font-size:11px;
+  letter-spacing:.18em;text-transform:uppercase;font-weight:600;transition:transform .18s ease}
+.skip:focus{transform:translateY(0)}
+
+/* ---------- back to top ---------- */
+.totop{position:fixed;right:20px;bottom:96px;z-index:70;width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;border:1px solid var(--line);
+  background:var(--paper);color:var(--ink);cursor:pointer;border-radius:50%;
+  opacity:0;visibility:hidden;transform:translateY(10px);transition:.25s ease;
+  box-shadow:0 6px 22px rgba(0,0,0,.10)}
+.totop.on{opacity:1;visibility:visible;transform:translateY(0)}
+.totop:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.totop svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:760px){ .totop{right:16px;bottom:88px;width:42px;height:42px} }
+
+/* ---------- consent banner ----------
+   Two buttons of equal weight. A banner where "accept" is a filled button and
+   "decline" is grey six-point text is not a choice, and in Kenya the Data
+   Protection Act 2019 asks for a real one. */
+/* The bar has its OWN four tokens rather than using --ink and --paper.
+
+   It was written with background:var(--ink) and colour #f2efea, which is right in
+   the light theme and unreadable in the dark one: --ink inverts to near-white, so
+   the bar became light grey text on an almost-white slab and the Decline button
+   was an empty outline. Every number in the audit still passed - it was 96px tall,
+   it had two 40px buttons, the choice persisted. Only looking at it found this.
+
+   In dark mode it is a lifted panel rather than an inversion, because there is
+   nothing left to invert to. */
+:root{ --cc-bg:#151515; --cc-fg:#f2efea; --cc-mute:#cfc9c2; --cc-line:#4a443f }
+:root[data-theme="dark"]{ --cc-bg:#232120; --cc-fg:#f4f1ec; --cc-mute:#c6c0b9; --cc-line:#4e4842 }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --cc-bg:#232120; --cc-fg:#f4f1ec; --cc-mute:#c6c0b9; --cc-line:#4e4842 }
+}
+.cc{position:fixed;left:0;right:0;bottom:0;z-index:1900;background:var(--cc-bg);color:var(--cc-fg);
+  padding:18px var(--pad);display:none;gap:22px;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;box-shadow:0 -8px 30px rgba(0,0,0,.28);border-top:1px solid var(--cc-line)}
+.cc.on{display:flex}
+.cc p{margin:0;font-size:12.5px;line-height:1.6;max-width:70ch;color:var(--cc-mute)}
+.cc a{color:var(--bronze-lt);border-bottom:1px solid}
+/* both buttons are declared outright here, so neither inherits a .btn rule that
+   the theme has already flipped underneath it */
+.cc .btn{padding:11px 22px;font-size:10px;background:var(--cc-fg);color:var(--cc-bg);
+  border:1px solid var(--cc-fg)}
+.cc .btn:hover{background:var(--bronze-lt);border-color:var(--bronze-lt);color:#151515}
+.cc .btn.ghost{color:var(--cc-fg);border-color:var(--cc-line);background:transparent}
+.cc .btn.ghost:hover{background:var(--cc-fg);color:var(--cc-bg);border-color:var(--cc-fg)}
+@media (max-width:760px){ .cc{padding:16px} .cc-act{width:100%} .cc-act .btn{flex:1} }
+
+/* ---------- password visibility ---------- */
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:52px}
+.pw-eye{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:42px;height:42px;
+  display:flex;align-items:center;justify-content:center;border:0;background:none;
+  cursor:pointer;color:var(--ink-3)}
+.pw-eye:hover{color:var(--ink)}
+.pw-eye svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.pw-eye .off{display:none}
+.pw-eye.shown .on{display:none}
+.pw-eye.shown .off{display:block}
+
+/* ---------- password strength ---------- */
+.pw-meter{margin-top:10px}
+.pw-bars{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.pw-bars i{height:3px;background:var(--mist);transition:background .2s}
+.pw-meter[data-score="1"] .pw-bars i:nth-child(-n+1){background:var(--bad)}
+.pw-meter[data-score="2"] .pw-bars i:nth-child(-n+2){background:var(--warn)}
+.pw-meter[data-score="3"] .pw-bars i:nth-child(-n+3){background:var(--ok)}
+.pw-meter[data-score="4"] .pw-bars i{background:var(--ok)}
+.pw-label{font-size:11.5px;color:var(--ink-3);margin-top:7px;display:block}
+.pw-label b{color:var(--ink-2);font-weight:600}
+
+/* ---------- inline field errors and success ---------- */
+.f-err{margin:7px 0 0;font-size:12px;color:var(--bad);line-height:1.45}
+.field.bad input,.field.bad select,.field.bad textarea{border-color:var(--bad)}
+.form-ok{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--ok);
+  background:color-mix(in srgb,var(--ok) 10%,transparent);padding:16px 18px;margin:0 0 18px}
+.form-ok svg{width:19px;height:19px;flex-shrink:0;margin-top:1px;stroke:var(--ok);fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.form-ok b{display:block;font-size:13px;margin-bottom:3px}
+.form-ok p{margin:0;font-size:12.5px;color:var(--ink-2)}
+.form-bad{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--bad);
+  background:color-mix(in srgb,var(--bad) 8%,transparent);padding:16px 18px;margin:0 0 18px}
+.form-bad svg{width:19px;height:19px;flex-shrink:0;margin-top:1px;stroke:var(--bad);fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.form-bad b{display:block;font-size:13px;margin-bottom:3px}
+.form-bad p{margin:0;font-size:12.5px;color:var(--ink-2)}
+
+/* ---------- toast ---------- */
+.ux-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);z-index:2100;
+  background:var(--ink);color:var(--paper);padding:14px 24px;font-size:12.5px;
+  letter-spacing:.02em;opacity:0;visibility:hidden;transition:.25s ease;max-width:min(92vw,520px);
+  box-shadow:0 10px 34px rgba(0,0,0,.22)}
+.ux-toast.on{opacity:1;visibility:visible;transform:translate(-50%,0)}
+.ux-toast.bad{background:var(--bad)}
+.ux-toast.ok{background:var(--ok)}
+
+/* ---------- confirmation dialog ----------
+   A real dialog, not window.confirm: it can say what is about to happen, it can
+   be cancelled with Escape, and it does not freeze the page while it waits. */
+.ux-modal{position:fixed;inset:0;z-index:2200;display:none;align-items:center;justify-content:center;padding:20px}
+.ux-modal.on{display:flex}
+.ux-modal-bg{position:absolute;inset:0;background:rgba(12,11,10,.55);backdrop-filter:blur(2px)}
+.ux-modal-card{position:relative;background:var(--paper);border:1px solid var(--line);
+  max-width:440px;width:100%;padding:30px;box-shadow:0 24px 70px rgba(0,0,0,.3)}
+.ux-modal-card h3{font-size:19px;margin-bottom:10px}
+.ux-modal-card p{font-size:13.5px;color:var(--ink-2);margin:0 0 22px;line-height:1.6}
+.ux-modal-act{display:flex;gap:10px;justify-content:flex-end}
+.ux-modal-act .btn{padding:12px 24px;font-size:10px}
+.ux-modal-card.danger .btn.go{background:var(--bad);border-color:var(--bad)}
+
+/* ---------- accordion / FAQ ---------- */
+.acc{border-top:1px solid var(--line)}
+.acc-item{border-bottom:1px solid var(--line)}
+.acc-q{width:100%;display:flex;align-items:center;justify-content:space-between;gap:20px;
+  padding:22px 0;background:none;border:0;cursor:pointer;text-align:left;
+  font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--ink);transition:color .2s}
+.acc-q:hover{color:var(--bronze)}
+.acc-q .plus{position:relative;width:14px;height:14px;flex-shrink:0}
+.acc-q .plus::before,.acc-q .plus::after{content:'';position:absolute;background:currentColor;
+  transition:transform .3s ease}
+.acc-q .plus::before{left:0;top:6px;width:14px;height:1.5px}
+.acc-q .plus::after{left:6px;top:0;width:1.5px;height:14px}
+.acc-item.open .acc-q .plus::after{transform:rotate(90deg)}
+.acc-a{overflow:hidden;height:0;transition:height .32s cubic-bezier(.4,0,.2,1)}
+.acc-a > div{padding:0 0 24px;font-size:13.5px;line-height:1.75;color:var(--ink-2);max-width:72ch}
+@media (prefers-reduced-motion: reduce){ .acc-a{transition:none} }
+
+/* ---------- copy button ---------- */
+.copybtn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
+  background:none;cursor:pointer;padding:7px 14px;min-height:40px;font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;font-weight:600;color:var(--ink-3);transition:.2s;vertical-align:middle}
+.copybtn:hover{color:var(--ink);border-color:var(--ink)}
+.copybtn.done{color:var(--ok);border-color:var(--ok)}
+.copybtn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.copybtn .tick{display:none}
+.copybtn.done .ic{display:none}
+.copybtn.done .tick{display:block}
+
+/* ---------- skeleton loading ----------
+   Shown while a view is being built. Shaped like the thing that is coming, so the
+   page does not jump when the real content lands. */
+.sk{background:linear-gradient(90deg,var(--bone) 25%,var(--bone-2) 37%,var(--bone) 63%);
+  background-size:400% 100%;animation:skshimmer 1.4s ease-in-out infinite}
+@keyframes skshimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.sk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:26px}
+.sk-card .sk-img{aspect-ratio:3/4;width:100%}
+.sk-card .sk-line{height:11px;margin-top:12px;width:70%}
+.sk-card .sk-line.s{width:40%;height:9px;margin-top:8px}
+@media (prefers-reduced-motion: reduce){ .sk{animation:none} }
+
+/* ---------- last updated ----------
+   It lives in the footer, which is a panel, so it takes a panel colour. Written as
+   var(--ink-4) first, which is the muted ink for the PAGE - on the footer's dark
+   slab that measured 3.5:1 in the light theme. A token is only right relative to
+   the surface it is on. */
+.ftr-stamp{display:block;margin-top:10px;font-size:11px;letter-spacing:.04em;
+  color:rgba(var(--panel-fg-rgb),.66)}
+
+/* ---------- print ----------
+   The storefront had no print styles at all, so printing a product page gave you
+   the mega menu, the marquee and a WhatsApp button. This gives a clean sheet: the
+   content, the prices, and every link written out so a printed page is still
+   usable off the paper. */
+@media print{
+  .announce,.hdr,.mnav,.wa,.totop,.cc,.themebtn,.skip,#progress,#veil,
+  .drawer,.scrim,.ux-toast,.ux-modal,.ai-fab,.ai,.ftr .sub,.copybtn{display:none !important}
+  html,body{background:#fff !important;color:#000 !important}
+  :root{--paper:#fff;--bone:#fff;--ink:#000;--ink-2:#222;--ink-3:#444;--line:#bbb}
+  img{filter:none !important;max-width:42% !important;page-break-inside:avoid}
+  main#app{padding-top:0 !important}
+  a[href^="http"]::after,a[href^="#/"]::after{content:" (" attr(href) ")";font-size:9px;color:#555}
+  .acc-a{height:auto !important}
+  .acc-item{page-break-inside:avoid}
+  h1,h2,h3{page-break-after:avoid}
+  .ftr{border-top:1px solid #bbb;padding-top:12px}
+  .ftr-top > div:not(.ftr-brand){display:none}
+  @page{margin:16mm}
+}
+
+/* ---------- the console's own security banner ----------
+   Scoped under .ad like everything else that belongs to the console. */
+.ad .secbar{display:flex;align-items:center;gap:10px;background:var(--warn-bg);
+  border:1px solid var(--warn);color:#5c4310;padding:11px 16px;font-size:12.5px;margin-bottom:18px}
+.ad .secbar svg{width:16px;height:16px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2}
+.ad .secbar b{font-weight:700}
+:root[data-theme="dark"] .ad .secbar{color:#e6c98a}
+.ad .login-lock{margin-top:14px;font-size:12px;color:var(--bad);text-align:center}
+.ad .otp-row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:6px}
+.ad .otp-left{font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+/* ---------- the menu button ----------
+   Measured at 390px before this: 0x0, because it was inside .nav and .nav is
+   display:none below 860px. Moving it out of .nav is the fix; this gives it the
+   44px target the rest of the mobile audit asked for. */
+.burger{width:44px;height:44px;padding:0;align-items:center;justify-content:center}
+.burger svg{width:22px;height:22px}
+
+/* ---------- Continue with Google ----------
+   A provider button is a recognised object: white ground, the four-colour mark, and
+   the wording Google's own guidelines ask for. It is deliberately NOT restyled into
+   the house palette - people scan for the shape they know, and a bronze button
+   saying "Continue with Google" reads as a phishing page rather than as taste.
+
+   The colours are painted explicitly rather than taken from the theme, for the same
+   reason: this button looks the same on every site, and that is the point of it. */
+.auth-oauth{display:flex;align-items:center;justify-content:center;gap:11px;width:100%;
+  min-height:48px;padding:13px 20px;margin-bottom:6px;cursor:pointer;
+  background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:2px;
+  font-family:var(--sans);font-size:13.5px;font-weight:600;letter-spacing:.01em;
+  transition:background .15s,border-color .15s,box-shadow .15s}
+.auth-oauth:hover{background:#f7f8f8;border-color:#c9cdd1;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.auth-oauth:active{background:#f0f1f2}
+.auth-oauth:disabled{opacity:.6;cursor:progress}
+.auth-oauth svg{flex-shrink:0}
+:root[data-theme="dark"] .auth-oauth{background:#f6f4f0;border-color:#cfcac4}
+
+/* the divider between the provider and the email form */
+.auth-or{display:flex;align-items:center;gap:14px;margin:22px 0 20px;
+  font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-4)}
+.auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:var(--line)}
+
+/* the server's own words, under a toggle - see sirhenrys-print-the-raw-error */
+.auth-raw{margin:8px 0 0;font-size:11.5px;color:var(--ink-3)}
+.auth-raw summary{cursor:pointer}
+.auth-raw pre{white-space:pre-wrap;word-break:break-word;margin:8px 0 0;padding:10px 12px;
+  background:var(--bone);border:1px solid var(--line);font-size:11px;line-height:1.5}

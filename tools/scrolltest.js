@@ -1,6 +1,7 @@
 /* The console has to scroll. Lenis owns the page's scrolling, so stopping it does not
    hand control back to the browser - it removes scrolling entirely. */
 const puppeteer=require('puppeteer-core');
+const signInAs=require('./signin');   // the gate has a second factor now
 const CHROME=process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
@@ -12,14 +13,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  await p.goto('http://localhost:8100/index.html#/admin',{waitUntil:'domcontentloaded',timeout:60000});
  await sleep(4000);
  // sign in as the owner, whose views are long enough to need scrolling
- await p.evaluate(async()=>{
-   const wait=ms=>new Promise(r=>setTimeout(r,ms));
-   const ad=document.getElementById('ad');
-   const who=ad.querySelector('[data-staff="ha"]'); if(who){who.click(); await wait(300);}
-   const pin=ad.querySelector('#pinInput');
-   if(pin){pin.value='1967'; ad.querySelector('#pinForm').dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));}
- });
- await sleep(1500);
+ await signInAs(p,'ha');
  const out={};
  for(const route of ['/admin/orders','/admin/inventory','/admin/products']){
    await p.evaluate(r=>{location.hash='#'+r;},route); await sleep(1200);

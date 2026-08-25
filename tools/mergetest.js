@@ -37,12 +37,19 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
               adLocked: ad.classList.contains('locked'),
               shopStillInDom: !!document.getElementById('app') };
 
-  // sign in as the owner and check the console actually renders
+  // Sign in as the owner and check the console actually renders. Two steps now:
+  // the PIN is checked against a PBKDF2 hash, then a TOTP code. This runs inside
+  // p.evaluate so it cannot call tools/signin.js - same flow, written out.
   const who=ad.querySelector('[data-staff="ha"]');
-  if(who){ who.click(); await wait(300);
-    const pin=ad.querySelector('#pinInput'); if(pin){ pin.value='1967';
-      ad.querySelector('#pinForm').dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));
-      await wait(700); } }
+  if(who){ who.click(); await wait(320);
+    try{ localStorage.removeItem('sirhenrys.rl'); }catch(e){}
+    const submit=()=>ad.querySelector('#pinForm')
+      .dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));
+    const pin=ad.querySelector('#pinInput');
+    if(pin){ pin.value='1967'; submit(); await wait(1500);
+      const otp=ad.querySelector('#otpInput');
+      if(otp){ otp.value=await SHSec.totp.now(SH.STAFF.find(s=>s.id==='ha').totp);
+        submit(); await wait(1700); } } }
   res.signedIn={ view: !!ad.querySelector('#view'),
                  hasNav: ad.querySelectorAll('.side a[data-nav]').length,
                  heading: (ad.querySelector('#view h1')||{}).textContent };

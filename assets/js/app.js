@@ -57,17 +57,49 @@
   const waNumber = (branch) => (SH.state.settings.whatsapp || {})[branch || 'cbd'] || '254713619786';
   const waLink = (text, branch) =>
     'https://wa.me/' + waNumber(branch) + '?text=' + encodeURIComponent(text);
-  const waProduct = (p, size) =>
-    waLink("Hello Sir Henry's, I am interested in the " + p.title +
+  /* Every WhatsApp message carries a short reference. A shop assistant reading
+     "I would like to order" otherwise has nothing to type into the console to find
+     the person again - and the whole point of the prefilled message is that nobody
+     has to describe what they are looking at twice. Derived from the time so it is
+     short, unique enough for a day's traffic, and readable down a phone line. */
+  const waRef = () => 'SH-W' + Date.now().toString(36).slice(-5).toUpperCase();
+
+  /* Which store to send this enquiry to.
+
+     settings.whatsapp holds a number per branch and every call site was passing
+     null, so every message landed on the CBD number - including "do you have a 52"
+     when the CBD has none and Westgate has four. The app already knows that, live
+     and per branch, so it may as well use it. Falls back to the CBD when no size is
+     chosen yet or nothing is in stock anywhere. */
+  const branchWithStock = (p, size) => {
+    if (!size) return null;
+    const best = BRANCHES
+      .map(b => ({ id: b.id, name: b.name, n: SH.stockAt(p.slug, size, b.id) }))
+      .sort((a, b) => b.n - a.n)[0];
+    return best && best.n > 0 ? best : null;
+  };
+
+  const waProduct = (p, size) => {
+    const at = branchWithStock(p, size);
+    return waLink("Hello Sir Henry's, I am interested in the " + p.title +
            (size ? ' in size ' + size : '') + ' (' + fmt(p.price) + ').' +
-           '\n\nIs it available?', null);
+           (at ? '\n\nI can see it at ' + at.name + '. Could you hold one?'
+               : '\n\nIs it available?') +
+           '\n\nRef ' + waRef(), at ? at.id : null);
+  };
+
   const waBasket = () => {
     const lines = state.cart.map(l => {
       const p = byId(l.slug);
       return '- ' + p.title + ' - size ' + l.size + ' x' + l.qty + ' - ' + fmt(p.price * l.qty);
     }).join('\n');
+    // Route the bag to a store that can fill its first line, for the same reason.
+    const first = state.cart[0];
+    const at = first ? branchWithStock(byId(first.slug), first.size) : null;
     return waLink("Hello Sir Henry's, I would like to order:\n\n" + lines +
-                  '\n\nTotal: ' + fmt(cart.total) + '\n\nCan you confirm availability?', null);
+                  '\n\nTotal: ' + fmt(cart.total) +
+                  '\n\nCan you confirm availability?' +
+                  '\n\nRef ' + waRef(), at ? at.id : null);
   };
 
   /* ---------- the anatomy sequence ----------
@@ -103,6 +135,10 @@
     <section class="anat" id="anatomy" style="height:${ANAT.length * 100}vh">
       <div class="anat-sticky">
         <div class="anat-stage-panel"></div>
+        <!-- Every frame carries a src. A progressive loader was tried here and taken
+             out again: throttling the fetches means the scroll can ask for a frame the
+             loader has not reached, and the sequence flickers between whatever has
+             landed. A scrubbed sequence has to be resident to be smooth. -->
         <div class="anat-stage" data-frames="97"><div class="anat-cam">
           ${Array.from({length: 97}, (_, i) =>
             `<img class="anat-f${i === 0 ? ' on' : ''}" src="assets/seq/d${String(i).padStart(3,'0')}.jpg"
@@ -334,7 +370,9 @@
 
   V.lookbook = () => {
     const list = PRODUCTS.filter(p => p.category === 'suits' || p.sub === 'jackets').map(p => p.slug);
-    return roomHTML(list, "Sir Henry's", 'The Room &middot; every garment in one light');
+    // roomHTML runs this through esc(), so an HTML entity here is double-escaped and
+    // the page reads "THE ROOM &MIDDOT; EVERY GARMENT IN ONE LIGHT". Use the character.
+    return roomHTML(list, "Sir Henry's", 'The Room · every garment in one light');
   };
 
   /* ---- Made to measure configurator ---- */
@@ -394,9 +432,13 @@
     <div class="sec-hd" data-reveal><div><div class="eyebrow">The Fitting Room</div><h2>Book a fitting</h2>
       <p>Thirty minutes with a Sir Henry's tailor. No charge, no obligation.</p></div></div>
     <form id="apptForm">
-      <div class="f2"><div class="field"><label>Full name</label><input name="name" required></div>
-      <div class="field"><label>Phone</label><input name="phone" required placeholder="07xx xxx xxx"></div></div>
-      <div class="field"><label>Email</label><input name="email" type="email" required></div>
+      <div class="f2"><div class="field"><label for="ap-name">Full name</label>
+        <input id="ap-name" name="name" data-v="name" autocomplete="name" maxlength="80" required></div>
+      <div class="field"><label for="ap-phone">Phone</label>
+        <input id="ap-phone" name="phone" data-v="phone" type="tel" autocomplete="tel"
+               inputmode="tel" maxlength="20" required placeholder="07xx xxx xxx"></div></div>
+      <div class="field"><label for="ap-email">Email</label>
+        <input id="ap-email" name="email" type="email" data-v="email" autocomplete="email" maxlength="254" required></div>
       <div class="field"><label>Store</label><select name="branch">
         ${BRANCHES.map(b => `<option value="${b.id}">${b.name}</option>`).join('')}</select></div>
       <div class="f2"><div class="field"><label>Preferred date</label><input name="date" type="date" required></div>
@@ -443,9 +485,13 @@
       <form id="coForm" style="display:grid;grid-template-columns:1fr 320px;gap:40px;align-items:start" class="cartgrid">
         <div>
           <div class="eyebrow" style="margin-bottom:14px">Contact</div>
-          <div class="f2"><div class="field"><label>Full name</label><input name="name" required></div>
-          <div class="field"><label>Phone</label><input name="phone" required placeholder="07xx xxx xxx"></div></div>
-          <div class="field"><label>Email</label><input name="email" type="email" required></div>
+          <div class="f2"><div class="field"><label for="co-name">Full name</label>
+            <input id="co-name" name="name" data-v="name" autocomplete="name" maxlength="80" required></div>
+          <div class="field"><label for="co-tel">Phone</label>
+            <input id="co-tel" name="phone" data-v="phone" type="tel" autocomplete="tel"
+                   inputmode="tel" maxlength="20" required placeholder="07xx xxx xxx"></div></div>
+          <div class="field"><label for="co-mail">Email</label>
+            <input id="co-mail" name="email" type="email" data-v="email" autocomplete="email" maxlength="254" required></div>
 
           <div class="eyebrow" style="margin:26px 0 14px">Delivery</div>
           <div class="radio-cards" id="shipOpts">
@@ -553,6 +599,23 @@
       <p class="auth-sub">Track your orders, follow an alteration through the workshop,
         and keep your measurements on file for next time.</p>
 
+      <!-- Google first. It is one tap, it needs no password invented or remembered,
+           and it is how most of this audience already signs in to everything else. -->
+      <button type="button" class="auth-oauth" data-google>
+        <svg viewBox="0 0 18 18" aria-hidden="true" width="18" height="18">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 009 18z"/>
+          <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 010-3.44V4.96H.96a9 9 0 000 8.08l3.01-2.32z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 00.96 4.96l3.01 2.32C4.68 5.16 6.66 3.58 9 3.58z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+      <p class="auth-err hide" data-oautherr role="alert"></p>
+      <details class="auth-raw hide" data-oauthraw>
+        <summary>what the server actually said</summary><pre></pre></details>
+
+      <div class="auth-or"><span>or use your email</span></div>
+
       <div class="auth-tabs" role="tablist">
         <button class="auth-tab on" data-authtab="in" role="tab">Sign in</button>
         <button class="auth-tab" data-authtab="up" role="tab">Create account</button>
@@ -560,22 +623,24 @@
 
       <form class="auth-form" data-authform="in">
         <div class="field"><label for="ai-email">Email</label>
-          <input id="ai-email" type="email" autocomplete="email" required></div>
+          <input id="ai-email" type="email" data-v="email" autocomplete="email" maxlength="254" required></div>
         <div class="field"><label for="ai-pass">Password</label>
-          <input id="ai-pass" type="password" autocomplete="current-password" required></div>
-        <p class="auth-err hide" data-autherr></p>
+          <input id="ai-pass" type="password" autocomplete="current-password" maxlength="128" required></div>
+        <p class="auth-err hide" data-autherr role="alert"></p>
         <button class="btn" style="width:100%">Sign in</button>
       </form>
 
       <form class="auth-form hide" data-authform="up">
         <div class="field"><label for="au-name">Name</label>
-          <input id="au-name" type="text" autocomplete="name" required></div>
+          <input id="au-name" type="text" data-v="name" autocomplete="name" maxlength="80" required></div>
         <div class="field"><label for="au-email">Email</label>
-          <input id="au-email" type="email" autocomplete="email" required></div>
+          <input id="au-email" type="email" data-v="email" autocomplete="email" maxlength="254" required></div>
         <div class="field"><label for="au-pass">Password</label>
-          <input id="au-pass" type="password" autocomplete="new-password" minlength="6" required>
-          <span class="auth-hint">At least six characters.</span></div>
-        <p class="auth-err hide" data-autherr></p>
+          <input id="au-pass" type="password" autocomplete="new-password" data-strength="1"
+                 minlength="${SH_SECURITY.minPasswordLength}" maxlength="128" required>
+          <span class="auth-hint">At least ${SH_SECURITY.minPasswordLength} characters, and not a word
+            from the top of every leaked-password list. The meter has to reach Fair.</span></div>
+        <p class="auth-err hide" data-autherr role="alert"></p>
         <button class="btn" style="width:100%">Create account</button>
       </form>
 
@@ -640,7 +705,26 @@
       <p class="serif" style="font-size:22px;line-height:1.55">Sir Henry's opened its doors in Nairobi in 1967 with one cutting table and a conviction that a Kenyan man should never have to leave the country for a properly made suit.</p>
       <p>Three generations later we still cut on the same street. What began as a single tailoring room is now four stores, a workshop that turns out over two thousand garments a year, and a ready-to-wear collection built on the same patterns we draft by hand.</p>
       <p>We sell suits, but what we actually do is fit them. Every garment we sell carries free alterations for life &mdash; not as a promotion, but because a suit that does not fit is not finished.</p>
-      <p>Our corporate service dresses banks, law firms and airlines across East Africa. Our charity programme has placed more than four thousand interview suits with young Kenyans entering the workforce.</p>
+      <p>Our corporate service dresses banks, law firms and airlines across East Africa.</p>
+    </div>
+    <!-- The footer links here by name, so it is a section with an id rather than a
+         sentence in a paragraph. Nothing is claimed here that the page did not
+         already claim - the figure is the one that was in the copy. -->
+    <div class="wrap" style="max-width:720px;padding-bottom:60px">
+      <section id="charity" tabindex="-1" style="border-top:1px solid var(--line);padding-top:44px">
+        <div class="eyebrow" style="margin-bottom:14px">The Charity Programme</div>
+        <h2 style="font-size:clamp(24px,3.2vw,36px);margin-bottom:18px">Four thousand interview suits</h2>
+        <p>A young Kenyan walking into a first interview should not be judged on what they
+          could afford to wear. Our charity programme has placed more than four thousand
+          interview suits with people entering the workforce.</p>
+        <p>It runs out of the Kimathi Street workshop, quietly, and it is the part of this
+          business we are proudest of. Every suit is altered to fit before it leaves, by the
+          same cutters who fit the ones we sell.</p>
+        <p class="muted" style="font-size:13px">If you would like to donate a suit, refer
+          somebody, or ask about a placement, write to us and mark it for the charity
+          programme.</p>
+        <div style="margin-top:24px"><a class="btn ghost" href="#/contact?subject=Charity">Get in touch about the programme</a></div>
+      </section>
     </div>
     <div class="split"><img src="assets/img/ed-fabric.jpg" alt="" loading="lazy">
       <div class="split-c" data-reveal><div class="eyebrow">Corporate Service</div><h2>Dressing <em>teams</em></h2>
@@ -648,17 +732,44 @@
       <div><a class="btn" href="#/contact">Talk to our corporate desk</a></div></div></div>
     <div style="height:80px"></div></div>`;
 
-  V.contact = () => `<div class="wrap" style="max-width:720px">
-    <div class="sec-hd" data-reveal><div><div class="eyebrow">Contact</div><h2>Talk to us</h2>
+  /* The footer's "Careers" and the about page's charity link both land here with a
+     subject on the URL. Landing on a generic form and expecting somebody to find
+     the right option in a dropdown is how a link that technically works still
+     fails. */
+  V.contact = (q) => {
+    const want = new URLSearchParams(q || '').get('subject') || '';
+    const SUBJECTS = ['General enquiry', 'Made to measure', 'Corporate service',
+                      'An existing order', 'Charity', 'Careers'];
+    const subject = SUBJECTS.find(s => s.toLowerCase() === want.toLowerCase()) || SUBJECTS[0];
+    const NOTE = {
+      Careers: 'We are a small workshop and we hire rarely, but we always read. Tell us what ' +
+               'you can do and where you learned it - cutters, machinists, shop floor and ' +
+               'alterations all start the same way.',
+      Charity: 'For donating a suit, referring somebody, or asking about a placement. ' +
+               'Mention which and we will put it in front of the right person.'
+    }[subject];
+    return `<div class="wrap" style="max-width:720px">
+    <div class="sec-hd" data-reveal><div><div class="eyebrow">${esc(subject === 'General enquiry' ? 'Contact' : subject)}</div>
+      <h2>${esc(subject === 'Careers' ? 'Work with us' : subject === 'Charity' ? 'The charity programme' : 'Talk to us')}</h2>
       <p>Tel (+254) 713 619786 &middot; Monday to Sunday, 10am - 8pm</p></div></div>
+    ${NOTE ? `<p class="muted" style="font-size:13.5px;line-height:1.7;margin-bottom:28px;
+      border-left:2px solid var(--bronze);padding-left:18px">${esc(NOTE)}</p>` : ''}
     <form id="ctForm">
-      <div class="f2"><div class="field"><label>Name</label><input name="name" required></div>
-      <div class="field"><label>Email</label><input name="email" type="email" required></div></div>
-      <div class="field"><label>Subject</label><select name="subject">
-        <option>General enquiry</option><option>Made to measure</option><option>Corporate service</option>
-        <option>An existing order</option><option>Careers</option></select></div>
-      <div class="field"><label>Message</label><textarea name="msg" rows="5" required></textarea></div>
-      <button class="btn wide">Send message</button></form></div><div style="height:80px"></div>`;
+      <div class="f2"><div class="field"><label for="ct-name">Name</label>
+        <input id="ct-name" name="name" data-v="name" autocomplete="name" maxlength="80" required></div>
+      <div class="field"><label for="ct-email">Email</label>
+        <input id="ct-email" name="email" type="email" data-v="email" autocomplete="email" maxlength="254" required></div></div>
+      <div class="field"><label for="ct-subject">Subject</label>
+        <select id="ct-subject" name="subject">${SUBJECTS.map(o =>
+          `<option${o === subject ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
+      <div class="field"><label for="ct-msg">Message</label>
+        <textarea id="ct-msg" name="msg" rows="5" data-v="note" maxlength="2000" required></textarea></div>
+      <button class="btn wide">Send message</button></form>
+    <div class="acc" style="margin-top:64px">
+      <div class="eyebrow" style="margin-bottom:18px">Before you write</div>
+      ${faqHTML(FAQ_CONTACT)}
+    </div></div><div style="height:80px"></div>`;
+  };
 
   V.search = (q) => {
     const term = new URLSearchParams(q || '').get('q') || '';
@@ -712,9 +823,13 @@
           <div class="eyebrow" style="margin-bottom:14px">Your quote</div>
           <div id="wQuote"></div>
           <form id="wForm" style="margin-top:22px">
-            <div class="field"><label>Organiser name</label><input name="organiser" required></div>
-            <div class="field"><label>Phone</label><input name="phone" required placeholder="07xx xxx xxx"></div>
-            <div class="field"><label>Email</label><input name="email" type="email" required></div>
+            <div class="field"><label for="w-org">Organiser name</label>
+              <input id="w-org" name="organiser" data-v="name" autocomplete="name" maxlength="80" required></div>
+            <div class="field"><label for="w-phone">Phone</label>
+              <input id="w-phone" name="phone" data-v="phone" type="tel" autocomplete="tel"
+                     inputmode="tel" maxlength="20" required placeholder="07xx xxx xxx"></div>
+            <div class="field"><label for="w-email">Email</label>
+              <input id="w-email" name="email" type="email" data-v="email" autocomplete="email" maxlength="254" required></div>
             <div class="f2"><div class="field"><label>Occasion</label>
               <select name="event"><option>Wedding</option><option>Graduation</option><option>Corporate</option><option>Prom</option></select></div>
               <div class="field"><label>Event date</label><input name="eventDate" type="date" required></div></div>
@@ -741,16 +856,22 @@
 
     <form id="corpForm" style="margin-top:44px">
       <div class="f2">
-        <div class="field"><label>Company</label><input name="company" required></div>
-        <div class="field"><label>Your name</label><input name="contact" required></div>
+        <div class="field"><label for="co-company">Company</label>
+          <input id="co-company" name="company" data-v="text" data-vmax="120" autocomplete="organization" maxlength="120" required></div>
+        <div class="field"><label for="co-contact">Your name</label>
+          <input id="co-contact" name="contact" data-v="name" autocomplete="name" maxlength="80" required></div>
       </div>
       <div class="f2">
-        <div class="field"><label>Email</label><input name="email" type="email" required></div>
-        <div class="field"><label>Phone</label><input name="phone" required placeholder="07xx xxx xxx"></div>
+        <div class="field"><label for="co-email">Email</label>
+          <input id="co-email" name="email" type="email" data-v="email" autocomplete="email" maxlength="254" required></div>
+        <div class="field"><label for="co-phone">Phone</label>
+          <input id="co-phone" name="phone" data-v="phone" type="tel" autocomplete="tel"
+                 inputmode="tel" maxlength="20" required placeholder="07xx xxx xxx"></div>
       </div>
       <div class="f2">
-        <div class="field"><label>How many people?</label>
-          <input name="headcount" type="number" min="1" value="50" required id="corpN"></div>
+        <div class="field"><label for="corpN">How many people?</label>
+          <input name="headcount" type="number" data-v="number" data-vlo="1" data-vhi="5000"
+                 min="1" max="5000" value="50" required id="corpN"></div>
         <div class="field"><label>Needed by</label><input name="deadline" type="date" required></div>
       </div>
       <div class="field"><label>Garment</label><select name="garment">
@@ -762,6 +883,97 @@
       <p class="muted" style="font-size:12px;margin-top:12px;text-align:center">
         On-site measuring included for orders over 20. We reply within one working day.</p>
     </form></div><div style="height:80px"></div>`;
+
+  /* ---------- FAQ ----------
+     One renderer, three sets. Every panel is a button inside a heading, with
+     aria-expanded and aria-controls wired by ux.js, so it works from a keyboard
+     and announces itself. Closed by default except the first, which is the one
+     question everybody actually arrived with. */
+  const FAQ_MAIN = [
+    ['Are alterations really free?',
+     'Yes, on every suit we sell, for as long as you own it. Bring it to any of the four ' +
+     'stores. A waist taken in, a sleeve shortened, a hem let down - no charge, no time limit. ' +
+     'It is the reason most of our customers are the sons of customers.'],
+    ['How long does made to measure take?',
+     'Three fittings across four to six weeks. The first takes about forty minutes: measurements, ' +
+     'cloth, and the hundred small decisions about lapel, lining and buttons. The second is the ' +
+     'baste fitting at around week three. The third is collection.'],
+    ['Do you deliver outside Nairobi?',
+     'Anywhere in Kenya, two to four working days, free over KSh 20,000. Outside Kenya, ask us ' +
+     'and we will quote - we ship to the region regularly.'],
+    ['What payment do you take?',
+     'M-Pesa, Visa, Mastercard, Amex and cash in store. Online, M-Pesa sends an STK push to your ' +
+     'phone and you approve it with your own PIN. We never see or store it.'],
+    ['Can I return something?',
+     'Fourteen days, unworn, with the tags on, for a full refund. Made to measure is cut to one ' +
+     'person so it cannot be returned - but it also cannot be wrong, because you approve it at ' +
+     'the baste fitting before it is finished.'],
+    ['How should I care for a suit?',
+     'Dry clean rarely - twice a year is plenty. Brush it after wearing, hang it on a wide ' +
+     'wooden hanger, and rest it a day between wears. A suit worn every day lasts a year; the ' +
+     'same suit rested lasts a decade.']
+  ];
+  const FAQ_CONTACT = [
+    ['How quickly do you reply?',
+     'Within one working day, and usually the same afternoon. Anything urgent about an order ' +
+     'already in the workshop, ring the shop directly on (+254) 713 619786.'],
+    ['Where are you?',
+     'Kimathi Street in the CBD is the original shop, open since 1967. There are three others - ' +
+     'see the stores page for hours and directions.'],
+    ['Do you take walk-ins for fittings?',
+     'Always, though a booked slot means a tailor is waiting for you rather than the other way ' +
+     'round. Booking takes about thirty seconds.']
+  ];
+
+  const faqHTML = (list) => `<div class="acc">${list.map(([q, a], i) => `
+    <div class="acc-item"${i === 0 ? ' data-open="1"' : ''}>
+      <h3 style="margin:0"><button type="button" class="acc-q">
+        <span>${esc(q)}</span><span class="plus" aria-hidden="true"></span></button></h3>
+      <div class="acc-a"><div>${esc(a)}</div></div>
+    </div>`).join('')}</div>`;
+
+  V.faq = () => `<div class="wrap" style="max-width:820px">
+    <div class="crumbs"><a href="#/">Home</a> / Questions</div>
+    <div class="sec-hd" data-reveal><div><div class="eyebrow">Questions</div>
+      <h2>The things people ask</h2>
+      <p>And if it is not here, ring the shop. Somebody who has been cutting cloth for
+        thirty years will answer.</p></div></div>
+    ${faqHTML(FAQ_MAIN)}
+    <p class="muted" style="font-size:12.5px;margin-top:40px">Still stuck?
+      <a href="#/contact" style="color:var(--bronze);border-bottom:1px solid">Write to us</a> or
+      <a href="#/appointments" style="color:var(--bronze);border-bottom:1px solid">book a fitting</a>.</p>
+  </div><div style="height:80px"></div>`;
+
+  /* ---------- privacy ----------
+     Linked from the consent banner, so it has to say something true about what
+     this site actually does rather than four screens of boilerplate. */
+  V.privacy = () => `<div class="wrap" style="max-width:760px">
+    <div class="crumbs"><a href="#/">Home</a> / Privacy</div>
+    <div class="sec-hd" data-reveal><div><div class="eyebrow">Privacy</div>
+      <h2>What we keep, and what we do not</h2></div></div>
+    <div style="font-size:14px;line-height:1.8;color:var(--ink-2)">
+      <p><b>Your bag, your wishlist and your measurements stay on this device.</b> They are held
+        in your browser, encrypted at rest, and they are never sent to us unless you place an
+        order or book a fitting.</p>
+      <p><b>An order carries what an order needs</b> - your name, your phone number, the delivery
+        address and what you bought. Our staff can see it in the console. It is kept for seven
+        years because Kenyan tax law says so.</p>
+      <p><b>M-Pesa PINs never touch this site.</b> The prompt to approve a payment comes from
+        Safaricom, on your phone, and you enter it there. We receive a receipt number and
+        nothing else.</p>
+      <p><b>One cookie</b>, holding your answer to the banner at the bottom of the page. If you
+        say yes to measurement we count page views; if you say no, nothing is loaded at all.</p>
+      <p><b>The staff assistant.</b> When a member of staff asks it a question, a summary of the
+        shop goes to Google's model to answer it. Customer names are replaced with labels
+        before it is sent, and phone numbers, emails and addresses are stripped out entirely.
+        Google never receives a customer's contact details from this site.</p>
+      <p><b>Your rights under the Data Protection Act 2019.</b> Ask us what we hold about you,
+        ask us to correct it, or ask us to delete it - by email, or in any of the four shops -
+        and we have thirty days to answer. There is no charge.</p>
+      <p class="muted" style="font-size:12.5px">Sir Henry's Limited, Kimathi Street, Nairobi.
+        Tel (+254) 713 619786.</p>
+    </div>
+  </div><div style="height:80px"></div>`;
 
   V.notfound = () => `<div class="empty" style="padding:160px 20px"><h2>Page not found</h2>
     <p>That page does not exist.</p><a class="btn" href="#/">Back home</a></div>`;
@@ -809,13 +1021,28 @@
       case 'corporate': html = V.corporate(); break;
       case 'stores': html = V.stores(); break;
       case 'about': html = V.about(); break;
-      case 'contact': html = V.contact(); break;
+      case 'contact': html = V.contact(query); break;
+      case 'faq': html = V.faq(); break;
+      case 'privacy': html = V.privacy(); break;
       default: html = V.notfound();
     }
     app.innerHTML = html;
     window.scrollTo(0, 0);
     afterRender(seg[0]);
     syncChrome();
+  }
+
+  /* One gate in front of every form on the storefront: is this a bot, and does
+     every field hold what it claims to. Returns false and marks the offending
+     field, so no caller has to remember to do either. */
+  function guard(form) {
+    const bot = SHSec.bot.check(form);
+    if (!bot.ok) { SHUX.formBad(form, 'That did not go through', bot.error); return false; }
+    const v = SHSec.validateForm(form);
+    if (!v.ok) { SHUX.formBad(form, 'Check the highlighted fields', 'Nothing was sent yet.'); return false; }
+    const old = form.parentElement && form.parentElement.querySelector('.form-bad');
+    if (old) old.remove();
+    return true;
   }
 
   /* ---------- per-view wiring ---------- */
@@ -827,6 +1054,18 @@
       sel.value ? p.set('sort', sel.value) : p.delete('sort');
       go('/shop?' + p.toString());
     };
+
+    /* #/about?s=charity - a hash router cannot also use the hash for an anchor, so
+       the section is named in the query and scrolled to here, once the view exists. */
+    const seg = new URLSearchParams(location.hash.split('?')[1] || '').get('s');
+    if (seg) {
+      const target = document.getElementById(seg.replace(/[^a-z0-9-]/gi, ''));
+      if (target) setTimeout(() => {
+        if (window.Motion && Motion.scrollTo) Motion.scrollTo(target, { offset: -90 });
+        else target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        target.focus({ preventScroll: true });
+      }, 240);
+    }
 
     if (view === 'account') wireAuth();
     if (view === 'product') wirePDP();
@@ -849,25 +1088,46 @@
       n.oninput = paint; paint();
       cf2.onsubmit = e => {
         e.preventDefault();
-        SH.addCorporate(Object.fromEntries(new FormData(cf2)));
+        if (!guard(cf2)) return;
+        const d = Object.fromEntries(new FormData(cf2));
+        delete d.company_website;
+        SH.addCorporate(d);
         cf2.reset(); paint();
+        SHUX.formOk(cf2, 'Quote requested',
+          'A tailor will call ' + d.contact + ' within one working day with a written quote.');
         toast('Quote requested - we will call within one working day');
       };
     }
 
     const sp = document.getElementById('searchPage');
-    if (sp) sp.onsubmit = e => { e.preventDefault(); go('/search?q=' + encodeURIComponent(sp.q.value)); };
+    if (sp) sp.onsubmit = e => {
+      e.preventDefault();
+      // a search term goes into a URL, so it is bounded and stripped of markup first
+      const r = SHSec.validate(sp.q.value, 'text', { max: 80, required: false });
+      go('/search?q=' + encodeURIComponent(String(r.value || '')));
+    };
 
     const af = document.getElementById('apptForm');
     if (af) af.onsubmit = e => {
       e.preventDefault();
+      if (!guard(af)) return;
       const d = Object.fromEntries(new FormData(af));
+      delete d.company_website;
       SH.bookAppointment(d);
+      SHUX.formOk(af, 'Fitting requested',
+        'We will call ' + d.phone + ' to confirm the slot. It is in your account now.');
       toast('Fitting requested - we will call to confirm');
-      go('/account');
+      setTimeout(() => go('/account'), 900);
     };
+
     const cf = document.getElementById('ctForm');
-    if (cf) cf.onsubmit = e => { e.preventDefault(); cf.reset(); toast('Message sent - we reply within one working day'); };
+    if (cf) cf.onsubmit = e => {
+      e.preventDefault();
+      if (!guard(cf)) return;
+      cf.reset();
+      SHUX.formOk(cf, 'Message sent', 'We reply within one working day, Monday to Sunday.');
+      toast('Message sent - we reply within one working day');
+    };
 
     mountMotion();
   }
@@ -881,8 +1141,20 @@
     const room = document.querySelector('.room');
     if (room) {
       const slugs = JSON.parse(room.dataset.room);
+      /* The rail takes the CUT plates - assets/img/room/*.webp, written by
+         tools/matte.py with a real alpha channel.
+
+         Two problems went away with them. The full plates are 1536x2048 at ~450KB
+         and the room loads thirteen: 5.7MB of texture for planes that render about
+         400px tall, so they arrived late or not at all and the room drew bare
+         rectangles. And with an alpha channel there is nothing to chroma key at
+         runtime, which is the thing that never worked - see tools/matte.py for why.
+
+         454KB for the set, and the shader just uses the alpha. */
       const items = slugs.map(byId).filter(Boolean)
-        .map(p => ({ src: p.images[0], slug: p.slug, title: p.title.split(' - ')[0], price: fmt(p.price),
+        .map(p => ({ src: 'assets/img/room/' + p.slug + '.webp',
+                     full: p.images[0],
+                     slug: p.slug, title: p.title.split(' - ')[0], price: fmt(p.price),
                      spin: SH.hasSpin(p.slug) ? SH.spinFrames(p.slug, 24) : null }));
       const titleEl = room.querySelector('[data-room-title]');
       const priceEl = room.querySelector('[data-room-price]');
@@ -911,6 +1183,37 @@
     const forms = [...document.querySelectorAll('[data-authform]')];
     if (!tabs.length) return;
 
+    /* ---- Continue with Google ---- */
+    const gBtn = document.querySelector('[data-google]');
+    const gErr = document.querySelector('[data-oautherr]');
+    const gRaw = document.querySelector('[data-oauthraw]');
+    const sayG = (msg, raw) => {
+      gErr.textContent = msg || '';
+      gErr.classList.toggle('hide', !msg);
+      // the server's own words, under a toggle, because a confident wrong message
+      // is worse than a raw right one
+      gRaw.classList.toggle('hide', !raw);
+      if (raw) gRaw.querySelector('pre').textContent = raw;
+    };
+
+    // anything that failed on the way back from a redirect surfaces here
+    const back = SHAuth.lastRedirectError && SHAuth.lastRedirectError();
+    if (back) sayG(back, null);
+
+    if (gBtn) gBtn.onclick = async () => {
+      sayG('', null);
+      gBtn.disabled = true;
+      const was = gBtn.querySelector('span').textContent;
+      gBtn.querySelector('span').textContent = 'Opening Google...';
+      const r = await SHAuth.signInWithGoogle();
+      if (r.redirecting) return;                 // the page is on its way out
+      gBtn.disabled = false;
+      gBtn.querySelector('span').textContent = was;
+      if (!r.ok) { sayG(r.error, r.raw); return; }
+      SHSec.audit.log('signin-google', (SHAuth.current() || {}).email || '');
+      render();
+    };
+
     const show = k => {
       tabs.forEach(t => t.classList.toggle('on', t.dataset.authtab === k));
       forms.forEach(f => f.classList.toggle('hide', f.dataset.authform !== k));
@@ -929,12 +1232,40 @@
       btn.textContent = 'One moment...';
 
       const val = id => (document.getElementById(id) || {}).value || '';
-      const r = f.dataset.authform === 'up'
+      const done = m => { btn.disabled = false; btn.textContent = was; if (m) say(m); };
+
+      // Bot check, then field validation, then - on sign-up only - the password
+      // policy. All three before a single request leaves the browser.
+      const bot = SHSec.bot.check(f);
+      if (!bot.ok) { done(bot.error); return; }
+      const fv = SHSec.validateForm(f);
+      if (!fv.ok) { done('Check the highlighted fields.'); return; }
+
+      const signup = f.dataset.authform === 'up';
+      if (signup) {
+        const pw = SHSec.passwordScore(val('au-pass'));
+        if (!pw.ok) { done('That password is ' + pw.label.toLowerCase() + '. ' + (pw.notes[0] || '')); return; }
+      }
+
+      // Rate limit the client side of sign-in too. Firebase throttles server side
+      // after a while; this stops a hundred tries ever being sent.
+      const who = 'cust:' + (signup ? val('au-email') : val('ai-email')).toLowerCase().trim();
+      const gate = SHSec.limiter.check(who);
+      if (!gate.ok) { done(gate.error); return; }
+
+      const r = signup
         ? await SHAuth.signUp(val('au-name').trim(), val('au-email').trim(), val('au-pass'))
         : await SHAuth.signIn(val('ai-email').trim(), val('ai-pass'));
 
-      btn.disabled = false; btn.textContent = was;
-      if (!r.ok) { say(r.error); return; }
+      if (!r.ok) {
+        const lim = SHSec.limiter.fail(who);
+        SHSec.audit.log(signup ? 'signup-fail' : 'signin-fail', who);
+        done(lim.ok ? r.error : lim.error);
+        return;
+      }
+      SHSec.limiter.reset(who);
+      SHSec.audit.log(signup ? 'signup' : 'signin', who);
+      done(null);
       render();                                    // straight into the account view
     });
   }
@@ -950,6 +1281,11 @@
       if (b.disabled) return;
       box.querySelectorAll('.sizes button').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); size = b.dataset.size;
+      /* The WhatsApp link was built once at render with an empty size, so choosing a
+         52 and tapping it sent a message that did not mention 52. It follows the
+         selection now - this is the channel most of these enquiries arrive on. */
+      const waBtn = box.querySelector('[data-wa]');
+      if (waBtn) waBtn.href = waProduct(p, size);
       const n = SH.branchTotal(p, size);
       stockEl.innerHTML = `<span class="dot ${n > 3 ? '' : 'low'}"></span>${n > 3 ? 'In stock' : `Only ${n} left`} in size ${size}`;
       box.querySelectorAll('[data-b]').forEach(el => {
@@ -1117,11 +1453,18 @@
 
     document.getElementById('wForm').onsubmit = e => {
       e.preventDefault();
-      if (!members.length) { toast('Add at least one person to the party'); return; }
-      const d = Object.fromEntries(new FormData(e.target));
+      const f = e.target;
+      if (!members.length) {
+        SHUX.formBad(f, 'Nobody in the party yet', 'Add at least one person above and we can price it.');
+        return;
+      }
+      if (!guard(f)) return;
+      const d = Object.fromEntries(new FormData(f));
+      delete d.company_website;
       SH.addGroup({ ...d, slug, members: members.slice() });
+      SHUX.formOk(f, 'Quote requested', 'We will call ' + d.organiser + ' within one working day.');
       toast('Quote requested - we will call the organiser');
-      go('/account');
+      setTimeout(() => go('/account'), 900);
     };
     paint();
   }
@@ -1241,8 +1584,21 @@
     }
     const rm = e.target.closest('[data-rm]');
     if (rm) {
-      cart.remove(rm.dataset.rm, rm.dataset.z);
-      if (location.hash.startsWith('#/cart') || location.hash.startsWith('#/checkout')) render();
+      // Removing a line is one tap from a thumb on a phone and there is no undo,
+      // so it asks. The dialog says which garment, because "are you sure?" on its
+      // own is a question nobody can answer.
+      const p = byId(rm.dataset.rm);
+      SHUX.confirm({
+        title: 'Remove this from your bag?',
+        body: (p ? p.title : 'This item') + (rm.dataset.z ? ', size ' + rm.dataset.z : '') +
+              ' will be taken out of your bag.',
+        confirm: 'Remove', danger: true
+      }).then(yes => {
+        if (!yes) return;
+        cart.remove(rm.dataset.rm, rm.dataset.z);
+        SHUX.toast('Removed from your bag');
+        if (location.hash.startsWith('#/cart') || location.hash.startsWith('#/checkout')) render();
+      });
       return;
     }
     if (e.target.closest('[data-opencart]')) { openCart(); return; }
@@ -1256,7 +1612,17 @@
 
   // newsletter + size finder live outside the router
   document.addEventListener('submit', e => {
-    if (e.target.id === 'subForm') { e.preventDefault(); e.target.reset(); toast('Subscribed - welcome to the house'); }
+    if (e.target.id === 'subForm') {
+      e.preventDefault();
+      const f = e.target;
+      const bot = SHSec.bot.check(f);
+      const r = SHSec.validate(f.querySelector('input[type=email]').value, 'email');
+      if (!bot.ok) { toast(bot.error, 'bad'); return; }
+      if (!r.ok) { SHSec.fieldMsg(f.querySelector('input[type=email]'), r.error); toast(r.error, 'bad'); return; }
+      SHSec.fieldMsg(f.querySelector('input[type=email]'), null);
+      f.reset();
+      toast('Subscribed - welcome to the house', 'ok');
+    }
     if (e.target.id === 'fitForm') {
       e.preventDefault();
       const d = Object.fromEntries(new FormData(e.target));

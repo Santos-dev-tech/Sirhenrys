@@ -1,4 +1,4 @@
-# Handover — state as of 2026-08-24
+# Handover — state as of 2026-08-24 (security pass)
 
 Read `TASKS.md` for how each thing was built and verified. This file is only what a new
 session needs to pick up without re-deriving anything.
@@ -57,9 +57,111 @@ Repo: https://github.com/Santos-dev-tech/Sirhenrys — everything is pushed.
 ### Two things NOT done
 1. **App Check is not enforced.** Deliberate — wait, watch the metrics, then enforce on
    **Firestore and Authentication only**. See the open problem below before enforcing AI Logic.
-2. **`firestore.rules` is demo-grade.** It only requires *a* signed-in user, and everyone
-   is anonymous, so anyone who loads the site can write to the books. The three steps to
-   fix it are in that file's header; `tools/set-staff-claims.js` does step 2.
+2. **`firestore.rules` is still in demo mode.** `DEMO()` at the top of that file returns
+   `true`, so any signed-in user — and everyone is signed in anonymously — can write the
+   books. Still deliberate for a pitch on invented data. What changed is that **the console
+   now says so on screen**: an amber bar sits above every page of the till while there is no
+   staff claim on the account. The four steps to turn it off are at the top of the rules
+   file; `tools/set-staff-claims.js` does step 2.
+
+---
+
+## Security and interface pass — 45 items, 56 checks
+
+Everything on three checklists (20 security, 20 interface, 5 login) plus twelve extras.
+**56/56 passing.** Full write-up with the numbers is task 22 in `TASKS.md`.
+
+    python tools/serve.py 8100
+    node tools/audittest.js          # exits with the number of failures
+
+**New files:** `assets/js/security.js` (the security layer), `assets/js/ux.js` (page
+furniture), `assets/css/ux.css`, `assets/js/boot.js` (was an inline script — moving it out
+is what lets `script-src` be `'self'` with no `unsafe-inline`), `assets/js/build.js`
+(generated), `.well-known/security.txt`.
+
+**New tools:** `audittest.js` (the audit), `auditshot.js` (screenshots of all of it),
+`secretscan.py`, `depscan.py` + `deps.json`, `stamp.py`, `signin.js`.
+
+**Things that changed behaviour, so nobody is surprised:**
+
+- **The staff console has a second factor.** PIN, then a six-digit TOTP code. Demo PINs are
+  unchanged (1967 / 2468 / 1357) and the live code is shown on the login card while
+  `SH_SECURITY.demoHints` is `true` in `security.js`. Turn that off for a real deployment.
+- **Staff PINs are no longer in the bundle** — `data.js` carries PBKDF2 hashes and TOTP
+  secrets. Six older harnesses now sign in through `tools/signin.js`.
+- **A staff session expires** after a shift and after 15 minutes idle.
+- **Customer passwords have a policy** (10+ characters, must reach "Fair"), enforced inside
+  `SHAuth.signUp` and not only on the form.
+- **The assistant no longer sends customer names or phone numbers to Google.** Names go out
+  as "Customer 01" and are put back before anyone reads the reply.
+- **Run `python tools/stamp.py` before every deploy** or the footer's "last updated" date is
+  the date of the deploy before.
+
+**Two real bugs the measuring found, both now fixed:** the mobile menu button measured
+**0×0** on a phone (it was inside `.nav`, which is `display:none` below 860px — clicking it
+in a test still "worked", which is why clicking proves nothing), and the consent bar was
+**unreadable in dark mode** (its background followed `--ink`, which inverts). The audit now
+measures WCAG contrast in both themes.
+
+**Still open, deliberately:** `style-src` keeps `'unsafe-inline'` because the storefront
+writes `style=""` attributes on rendered cards and CSP cannot hash an attribute; three.js
+r144 and Firebase 10.14.1 are behind, both recorded in `tools/deps.json` with reasons.
+
+---
+
+## Dark mode — and the rule that comes with it
+
+There are now **two** standing gates. Run both:
+
+    node tools/audittest.js          # 56 security/interface checks
+    node tools/darktest.js --light   # contrast, every route, both themes, two viewports
+
+`darktest.js` walks 17 storefront routes and 9 console routes at 1440px and 390px and
+measures WCAG contrast on every element that paints text. It found 76 failures on its first
+run; the console was unusable in dark. Both themes pass now.
+
+**The rule, because it will come up again the first time anyone adds a colour:**
+
+> A theme is only as deep as its tokens. Swapping custom properties reaches colours that
+> were *written* as custom properties, and nothing else.
+
+So: **never write a literal colour in site.css or admin.css.** The tokens to reach for:
+
+- `--paper` / `--bone` / `--surface` — the page and its raised surfaces
+- `--ink` / `--ink-2` / `--ink-3` / `--ink-4` — the text ladder
+- `--invert-bg` / `--invert-fg` — a **small filled control** (button, selected chip, tag,
+  toast). In dark this is a pale fill with dark text.
+- `--panel-bg` / `--panel-fg` / `--panel-mute` — a **large inverted surface** (footer,
+  announcement strip, console sidebar, login backdrop). In dark this is a lifted dark
+  panel, *not* an inversion.
+- `--scrim-rgb` / `--glass-rgb` — the hero wash and the frosted header, as channels
+- `--room-bg` — the WebGL gallery. **motion.js reads the same property** for the shader
+  uniform that distant figures dissolve into, and `Motion.retheme()` hands it over on a
+  theme change. Change it in one place or the two drift.
+
+Those last two token pairs were one pair to begin with, and one of the two jobs had to be
+wrong whichever value it took. That is what put a white footer under a dark page.
+
+**Three pre-existing light-theme failures came out of the same sweep** and are fixed:
+`--ink-4` measured 2.92:1 on white (it carries breadcrumbs, strikethrough prices and table
+headers), the console sidebar's section headings measured 3.6:1, and the warn pill 4.17:1.
+The muted inks are darkened; the four steps of the ladder are kept.
+
+Screenshots: `node tools/darkshot.js` writes `_shots/dk-*.png`. Look at them — the console
+login backdrop was still a cream field with a dark card on it after every number passed.
+
+**Two footer links** that pointed at pages which did not answer them now land properly:
+Charity Programme goes to `#/about?s=charity` (a real section, scrolled to after render,
+because a hash router cannot also use the hash for an anchor) and Careers to
+`#/contact?subject=Careers` (retitles the page and preselects the subject).
+
+---
+
+## Obsidian
+
+Installed 2026-08-25 via winget at `%LOCALAPPDATA%\Programs\Obsidian\Obsidian.exe`.
+Claude's memory folder is registered as a vault, so it appears in the vault list on first
+launch: **Start Menu → Claude Brain (Obsidian)**. Nothing in this repo depends on it.
 
 ---
 
@@ -108,7 +210,8 @@ without establishing which cause it is.
 
 ## Higgsfield credits
 
-**~0.77 left** on `nuts17615@gmail.com`. Two hard-won facts:
+**~0.77 left.** The account is a personal Higgsfield login - deliberately not written
+down here; ask Zain. Two hard-won facts:
 - The free plan gates the **cheap** models, not the expensive ones.
 - A turnaround costs **8 credits** (veo3_1_lite, 8s, start *and* end image to force a loop).
   Eleven of thirteen room garments are still flat plates.

@@ -6,48 +6,84 @@ rules_version = '2';
 // Deploy:  firebase deploy --only firestore:rules
 // Test:    Firebase console -> Firestore -> Rules -> Rules Playground
 //
-// READ THIS BEFORE GOING LIVE.
+// THIS FILE IS THE SECURITY BOUNDARY. Nothing in assets/js is.
 //
-// The rules below are the *demo* posture. They require a signed-in user, which
-// sync.js satisfies with anonymous auth, and they stop the obvious damage: no
-// deleting, no unbounded documents, no writing outside the known keys. What they
-// do NOT do is distinguish one anonymous visitor from another. Anyone who loads
-// the site gets an anonymous credential, so anyone who loads the site can write
-// to the shop's books.
+// The PIN gate, the role menu and the rate limiter in the browser stop the
+// accident and the casual poke. They run on a machine the attacker owns, so they
+// stop nothing else. Every rule below runs on Google's servers, on a token this
+// page cannot mint, and that is the whole of the difference.
 //
-// That is acceptable for a pitch running on demo data. It is NOT acceptable once
-// this holds real orders. The fix is small but it cannot be done from the client:
+// ---------------------------------------------------------------------------
+// DEMO MODE - read this before going live
+// ---------------------------------------------------------------------------
+// DEMO below is true. While it is true, any signed-in user - and sync.js signs
+// everyone in anonymously - may write the shop's books. That is correct for a
+// pitch running on invented data and wrong the moment this holds a real order.
 //
-//   1. In the Firebase console, create real staff accounts (Auth -> Users), or
-//      enable a provider and invite them.
-//   2. Give each one a custom claim, e.g. { staff: true, role: 'manager' }.
-//      That needs the Admin SDK - a one-off script or a Cloud Function.
-//   3. Swap isSignedIn() for isStaff() on the write rules below, and split the
-//      customer-writable keys (orders placed from the storefront) from the
-//      staff-only ones (settings, adjustments, sales).
+// The console now SAYS SO on screen: with no staff claim on the account, a
+// warning bar sits above every page of the till. That was the real problem with
+// the previous version of this file - not that it was permissive, but that
+// nothing on the running site admitted it.
 //
-// Until step 3 is done, treat everything in this database as public.
+// To go live, in this order:
+//
+//   1. Firebase console -> Authentication -> Users. Create a real account per
+//      member of staff, or enable a provider and invite them.
+//   2. node tools/set-staff-claims.js
+//      Sets { staff: true, role: 'owner' | 'manager' | 'floor', store: '<id>' }
+//      on each one. Needs the Admin SDK and a service account key, which is why
+//      it cannot be done from the client and why the claim is worth anything.
+//   3. Change DEMO to false below and deploy these rules.
+//   4. Sign in as each role and check the till, the books and the settings page.
+//      The warning bar disappears on its own once the claim is really there.
+//
+// Step 3 without step 2 locks every member of staff out of the console, which is
+// a bad afternoon but not a breach. Step 2 without step 3 changes nothing. Do
+// them in order and check after each.
 // ---------------------------------------------------------------------------
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
+    // ---- who is asking -----------------------------------------------------
+
+    function DEMO() { return true; }
+
+    function isSignedIn() { return request.auth != null; }
+
+    function isAnon() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
-    // Staff carry a custom claim set server-side; unused until the steps above are
-    // done, but written now so switching over is a one-word change per rule.
+    // A staff claim can only be written with the Admin SDK. This is the one
+    // assertion on this page that did not come from this page.
     function isStaff() {
       return isSignedIn() && request.auth.token.staff == true;
     }
 
-    // The client stores each slice of shop state as a JSON string. Anything else
-    // is a bug or an attack, so the shape is pinned rather than trusted.
+    function role() {
+      return isStaff() ? request.auth.token.role : '';
+    }
+
+    function isOwner()   { return role() == 'owner'; }
+    function isManager() { return isOwner() || role() == 'manager'; }
+
+    // Staff during the pitch; staff only once DEMO is off.
+    function mayWriteBooks() { return isStaff() || (DEMO() && isSignedIn()); }
+    function mayReadBooks()  { return isStaff() || (DEMO() && isSignedIn()); }
+
+    // ---- what may be written ------------------------------------------------
+
+    // The client stores each slice of shop state as one JSON string. Anything
+    // else is a bug or an attack, so the shape is pinned rather than trusted.
     function wellFormed() {
       return request.resource.data.keys().hasOnly(['json', 'at'])
           && request.resource.data.json is string
-          && request.resource.data.json.size() < 900000;   // under the 1MB doc ceiling
+          && request.resource.data.json.size() < 900000   // under the 1MB doc ceiling
+          && request.resource.data.at is number
+          // a timestamp from the future is either a broken clock or an attempt to
+          // win a last-writer-wins merge for ever
+          && request.resource.data.at < request.time.toMillis() + 300000;
     }
 
     // Exactly the keys data.js lists as SHARED. A new key means a deliberate edit
@@ -57,13 +93,75 @@ service cloud.firestore {
                      'corporate', 'sales', 'adjustments', 'settings'];
     }
 
+    // Money and configuration. Once DEMO is off these need a manager or better,
+    // because a shop floor account should be able to sell but not to rewrite what
+    // was sold, and not to move the free-delivery threshold.
+    function restrictedKey(key) {
+      return key in ['settings', 'adjustments', 'sales'];
+    }
+
+    // ---- the shop's books ---------------------------------------------------
+
     match /shops/{shop}/state/{key} {
-      allow read:   if isSignedIn();
-      allow create,
-            update: if isSignedIn() && knownKey(key) && wellFormed();
+      allow read: if mayReadBooks();
+
+      allow create, update: if mayWriteBooks()
+                            && knownKey(key)
+                            && wellFormed()
+                            && (!restrictedKey(key) || DEMO() || isManager());
+
       // Nothing in this app deletes shop state. Resetting the demo writes an empty
-      // value rather than removing the document, so delete stays shut.
+      // value rather than removing the document, so delete stays shut - including
+      // for the owner, because there is no legitimate caller.
       allow delete: if false;
+    }
+
+    // ---- a customer's own record --------------------------------------------
+    //
+    // Row-level security in the only form Firestore has one: the document path
+    // contains the owner's uid, and the rule compares it to the uid on the token.
+    // A customer reads and writes their own row and cannot name anybody else's,
+    // however they craft the request. Staff may read them all, because answering
+    // "where is my order" is the job.
+
+    match /shops/{shop}/customers/{uid} {
+      function isMe() { return isSignedIn() && request.auth.uid == uid && !isAnon(); }
+
+      allow read:   if isMe() || isStaff();
+      allow create: if isMe()
+                    && request.resource.data.keys().hasOnly(['profile', 'measurements', 'at'])
+                    && request.resource.data.at is number;
+      allow update: if isMe()
+                    && request.resource.data.keys().hasOnly(['profile', 'measurements', 'at'])
+                    // the uid is in the path, so it cannot be moved by an update
+                    && request.resource.data.at is number;
+      // A customer may erase their own record - the Data Protection Act 2019 gives
+      // them that right and it should not need an email to us.
+      allow delete: if isMe();
+
+      // Their orders. Written once by the customer who placed it, then only staff
+      // may move it on. That split is what stops a customer marking their own
+      // order Delivered, or editing the total after the fact.
+      match /orders/{orderId} {
+        allow read:   if isMe() || isStaff();
+        allow create: if isMe()
+                      && request.resource.data.total is number
+                      && request.resource.data.total >= 0
+                      && request.resource.data.total < 100000000
+                      && request.resource.data.status == 'Confirmed';
+        allow update: if isStaff();
+        allow delete: if false;
+      }
+    }
+
+    // ---- a place to say the demo is over ------------------------------------
+    //
+    // Readable by anyone signed in so the console can show its banner; writable
+    // only by the owner. Nothing else in the app depends on it.
+
+    match /shops/{shop}/config/{doc} {
+      allow read:  if isSignedIn();
+      allow write: if isOwner();
     }
 
     // Anything not matched above is denied. Do not add a catch-all.

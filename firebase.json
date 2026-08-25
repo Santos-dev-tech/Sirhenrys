@@ -1,7 +1,6 @@
 {
   "hosting": {
     "public": ".",
-
     "//": [
       "Spark Hosting allows 360 MB of transfer a day, so what is NOT uploaded matters.",
       "The video files are the biggest thing here and nothing at runtime touches them -",
@@ -21,40 +20,109 @@
       "*.md",
       "admin.html.bak"
     ],
-
     "//routing": [
       "Every route in this app is a hash (#/shop, #/admin), so the server only ever needs",
       "to hand back index.html. The rewrite covers anyone who types or bookmarks a path."
     ],
     "rewrites": [
-      { "source": "**", "destination": "/index.html" }
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
     ],
-
     "headers": [
+      {
+        "//": "Every response carries the same policy Cloudflare serves from _headers. Kept identical on purpose - a site that is hardened on one host and bare on another is a site whose security depends on which URL somebody happens to open. tools/audittest.js compares the two files and the meta tag in index.html, and fails if any of the three drifts.",
+        "source": "**",
+        "headers": [
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://www.google.com https://www.gstatic.com; media-src 'self' blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://www.google.com https://firebaselogging-pa.googleapis.com wss://*.firebaseio.com; frame-src https://www.google.com https://accounts.google.com https://sir-henrys.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+          },
+          {
+            "key": "Strict-Transport-Security",
+            "value": "max-age=63072000; includeSubDomains; preload"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "accelerometer=(), ambient-light-sensor=(), autoplay=(self), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), interest-cohort=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), xr-spatial-tracking=()"
+          },
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
+          },
+          {
+            "key": "Cross-Origin-Resource-Policy",
+            "value": "same-origin"
+          },
+          {
+            "key": "X-Permitted-Cross-Domain-Policies",
+            "value": "none"
+          },
+          {
+            "key": "X-DNS-Prefetch-Control",
+            "value": "off"
+          }
+        ]
+      },
       {
         "//": "Images, frames and vendored libraries never change without a new filename, so they can be cached hard. This is what keeps a second visit nearly free against the daily quota.",
         "source": "**/@(jpg|jpeg|png|webp|svg|woff2|mp4)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
         ]
       },
       {
         "//": "Scripts and styles DO change, and a stale one against a fresh index.html is how a site half-updates. Revalidate every time; the 304 costs almost nothing.",
         "source": "**/@(js|css)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
         ]
       },
       {
         "//": "The shell must never be cached, or a deploy does not reach anyone still holding the old one.",
         "source": "/index.html",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "//": "Nothing that touches an account may sit in a shared cache, and nothing about it belongs in a referrer.",
+        "source": "/admin.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
+          }
         ]
       }
     ]
   },
-
   "firestore": {
     "rules": "firestore.rules"
   }

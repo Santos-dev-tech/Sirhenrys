@@ -1,4 +1,5 @@
 const puppeteer=require('puppeteer-core');
+const signInAs=require('./signin');   // the gate has a second factor now
 const CHROME=process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
@@ -12,14 +13,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
            bodyClass:document.body.className, adHidden:document.getElementById('ad').hidden};});
  await p.screenshot({path:'C:/Users/ADMIN/New folder (2)/_shots/fab-0-login.jpg',type:'jpeg',quality:80});
  // sign in exactly as a person does
- await p.evaluate(async()=>{
-   const wait=ms=>new Promise(r=>setTimeout(r,ms));
-   const ad=document.getElementById('ad');
-   ad.querySelector('[data-staff="ha"]').click(); await wait(400);
-   ad.querySelector('#pinInput').value='1967';
-   ad.querySelector('#pinForm').dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));
- });
- await sleep(1800);
+ await signInAs(p,'ha');
  const after=await p.evaluate(()=>{const f=document.getElementById('aiFab');
    const r=f?f.getBoundingClientRect():null;
    return {exists:!!f, display:f?getComputedStyle(f).display:null,

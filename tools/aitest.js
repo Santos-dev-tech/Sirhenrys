@@ -2,6 +2,7 @@
    that the "propose, do not commit" boundary actually holds - the handlers must not
    change stock until a person clicks. */
 const puppeteer=require('puppeteer-core');
+const signInAs=require('./signin');   // the gate has a second factor now
 const CHROME=process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
@@ -33,14 +34,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  out.storefront=await seen();
 
  await p.evaluate(()=>{location.hash='#/admin';}); await sleep(1200);
- await p.evaluate(async()=>{
-   const wait=ms=>new Promise(r=>setTimeout(r,ms));
-   const ad=document.getElementById('ad');
-   const who=ad.querySelector('[data-staff="ha"]'); if(who){who.click(); await wait(300);}
-   const pin=ad.querySelector('#pinInput');
-   if(pin){pin.value='1967'; ad.querySelector('#pinForm').dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));}
- });
- await sleep(1600);
+ await signInAs(p,'ha');
  out.console=await seen();
  // and it must still work after the login gate has rebuilt the console around it
  out.clickWorks=await p.evaluate(async()=>{

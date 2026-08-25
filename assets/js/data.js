@@ -172,8 +172,11 @@ const SH = (() => {
     if (!n) return [];
     const take = (max && max < n) ? max : n;
     const step = n / take;
+    // The cut frames, written by tools/matte.py --spin: same turnaround with a real
+    // alpha channel. Without them the one garment that has a turnaround rendered as
+    // a full grey rectangle in a room where every other plate was cut.
     return Array.from({ length: take }, (_, i) =>
-      'assets/spin/' + slug + '/f' + String(Math.round(i * step) % n).padStart(3, '0') + '.jpg');
+      'assets/spin/' + slug + '/cut/f' + String(Math.round(i * step) % n).padStart(3, '0') + '.webp');
   };
 
   const byId = s => PRODUCTS.find(p => p.slug === s);
@@ -219,10 +222,30 @@ const SH = (() => {
 
   /* Demo staff accounts. A real deployment authenticates server-side; these exist so the
      console can be shown locked rather than open to anyone with the URL. */
+  /* Staff credentials.
+
+     No PIN in this file. What ships is a PBKDF2-HMAC-SHA256 hash at 210,000
+     iterations over a per-person salt, plus a TOTP secret for the second factor.
+     admin.js checks both through SHSec; neither can be read back out.
+
+     Be honest about the ceiling: four digits is ten thousand possibilities, so a
+     hash slows a determined grinder rather than stopping one. What stops one is
+     that a correct PIN and code together still open nothing on the server - every
+     read and write is gated on a staff claim in firestore.rules that only the
+     Admin SDK can set. This is the shop floor lock; that is the safe. */
   const STAFF = [
-    { id:'ha', name:'Henry Achieng',  pin:'1967', role:'owner',   store:null,     title:'Owner' },
-    { id:'wm', name:'Wanjiru Mwangi', pin:'2468', role:'manager', store:'cbd',    title:'Store Manager, CBD' },
-    { id:'ok', name:'Otieno Kimani',  pin:'1357', role:'floor',   store:'west',   title:'Shop Floor, Westgate' }
+    { id:'ha', name:'Henry Achieng',  role:'owner',   store:null,  title:'Owner',
+      salt:'4949f8c2c2ebb10b80eee058763d36d3',
+      hash:'49f4445740c4ccbe71930dcaa9f6e74e5e6b57decd618d267407a41c57733c60',
+      totp:'SLDHYWII75SEF3QV3BHZO6XDN5AR67WC' },
+    { id:'wm', name:'Wanjiru Mwangi', role:'manager', store:'cbd', title:'Store Manager, CBD',
+      salt:'293a42ff191c8fd31ec65072f19af37e',
+      hash:'743d7bf25dd94fc20592b11b22620d25bd07111e434b55dc74ed9154d52c0bca',
+      totp:'2D6NVDSWCLWIGCM35M7NYDAICGR3ELIV' },
+    { id:'ok', name:'Otieno Kimani',  role:'floor',   store:'west', title:'Shop Floor, Westgate',
+      salt:'f415f7615ef5473756b7d36ad6604ae1',
+      hash:'808b1c7acaa8544a2267605ecf8387b84c316ff2d80f85d294abc0251e6eeeaa',
+      totp:'X6FRIDRZQBUVTXLGGZ6EQD4GSF3XIYOU' }
   ];
   const ROLE_VIEWS = {
     owner:   ['dashboard','analytics','pos','orders','products','inventory','customers','fittings','alterations','commissions','groups','corporate','settings'],
@@ -296,15 +319,21 @@ const SH = (() => {
 
   /* ---------- cart ---------- */
   const cart = {
+    // A quantity is an integer between 1 and 50. It is clamped here rather than in
+    // the view because the view is not the only caller - the till, the group
+    // builder and a hand-edited localStorage all land in the same place.
+    bound: q => Math.max(0, Math.min(50, Math.floor(Number(q) || 0))),
     add(slug, size, qty = 1) {
+      if (!byId(slug)) return;                       // an unknown slug prices at zero
+      const n = cart.bound(qty) || 1;
       const line = state.cart.find(l => l.slug === slug && l.size === size);
-      if (line) line.qty += qty; else state.cart.push({ slug, size, qty });
+      if (line) line.qty = cart.bound(line.qty + n) || 1; else state.cart.push({ slug, size, qty: n });
       emit();
     },
     setQty(slug, size, qty) {
       const l = state.cart.find(x => x.slug === slug && x.size === size);
       if (!l) return;
-      l.qty = Math.max(0, qty);
+      l.qty = cart.bound(qty);
       if (!l.qty) state.cart = state.cart.filter(x => x !== l);
       emit();
     },
@@ -327,11 +356,23 @@ const SH = (() => {
 
   function placeOrder(details) {
     const id = 'SH-' + (10242 + state.orders.length);
+    // Price the order from the catalogue, never from the cart. The cart lives in
+    // localStorage, which the customer owns; SHSec.reprice re-derives every line
+    // and reports any that disagreed, so an edited price is recorded as an attempt
+    // rather than silently honoured.
+    const priced = window.SHSec ? SHSec.reprice(state.cart) : null;
+    if (priced && priced.tampered.length && window.SHSec) {
+      SHSec.audit.log('price-mismatch', JSON.stringify(priced.tampered).slice(0, 180));
+    }
+    const goods = priced ? priced.total : cart.subtotal;
+    const ship = goods === 0 || goods >= state.settings.freeShipThreshold ? 0 : 500;
     const order = {
       id, date: Date.now(), customer: details.customer,
       items: state.cart.map(l => ({ ...l, price: byId(l.slug).price })),
-      total: cart.total, payment: details.payment, branch: details.branch || 'cbd',
-      status: 'Confirmed', alterations: details.alterations || ''
+      total: goods + ship, payment: details.payment, branch: details.branch || 'cbd',
+      status: 'Confirmed', alterations: details.alterations || '',
+      // which campaign brought this order in - first touch and last touch both
+      source: (window.SHUX && SHUX.attribution().summary) || 'direct'
     };
     state.orders.unshift(order);
     state.cart = [];

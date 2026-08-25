@@ -151,14 +151,26 @@ function snapshot() {
     id: f.id, name: f.name, date: f.date, time: f.time, branch: f.branch, status: f.status
   }));
 
-  return JSON.stringify({
+  /* Trim what leaves the building.
+
+     This payload used to carry customer names and company names to Google on
+     every question. None of them help: the model is answering "what is late" and
+     "which branch is short", and a name adds nothing to either answer while
+     handing a third party a customer list.
+
+     SHSec.redact drops contact details outright - phone, email, address, M-Pesa
+     receipt, wherever they appear - and swaps each name for a stable label
+     (Customer 01, Company 03). The model reasons about the labels; ai-ui.js puts
+     the real names back before a human reads the reply. Google never sees one. */
+  const payload = {
     today: new Date().toISOString().slice(0, 10),
     branches: S.BRANCHES.map(b => ({ id: b.id, name: b.name })),
     stockWorthMoving: lowStock.slice(0, 30),
     recentOrders: recent,
     alterations, corporate, fittings,
     sales: (st.sales || []).length
-  });
+  };
+  return JSON.stringify(window.SHSec ? SHSec.redact(payload) : payload);
 }
 
 /* ---------- boot ---------- */

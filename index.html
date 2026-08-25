@@ -11,6 +11,19 @@
 <link rel="stylesheet" href="assets/css/site.css">
 <!-- scoped under .ad, so it cannot reach the storefront - see the head of the file -->
 <link rel="stylesheet" href="assets/css/admin.css">
+<!-- The page furniture that belongs to neither half: the theme, the consent bar,
+     the confirm dialog, print. Kept out of admin.css because that file's whole
+     discipline is that every rule in it is scoped under .ad. -->
+<link rel="stylesheet" href="assets/css/ux.css">
+<meta name="theme-color" content="#151515">
+<!-- A CSP also ships as a real header from _headers and firebase.json. This copy
+     is here so that the same policy applies when the file is opened straight off
+     disk or served by anything that drops headers - the portable build included.
+     One deliberate difference from the header version: frame-ancestors is absent
+     here, because a browser ignores that directive in a meta tag and logs a warning
+     saying so. X-Frame-Options and the frame-buster in security.js cover the case
+     instead. tools/audittest.js checks the two are identical apart from that. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'self' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://www.google.com https://www.gstatic.com; media-src 'self' blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://www.google.com https://firebaselogging-pa.googleapis.com wss://*.firebaseio.com; frame-src https://www.google.com https://accounts.google.com https://sir-henrys.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests">
 </head>
 <body>
 <!-- One document, two apps. #shop is the storefront; #ad is the staff console at
@@ -31,11 +44,15 @@
 
 <header class="hdr">
   <div class="wrap hdr-in">
+    <!-- The menu button is a SIBLING of .nav, not a child of it. It used to be
+         inside, and .nav is display:none below 860px, so on a phone this button
+         measured 0x0 and there was no way to open the menu at all. -->
+    <button class="iconbtn burger" data-menu aria-label="Menu" aria-controls="mnav" aria-expanded="false">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+
     <nav class="nav">
       <a class="navhome" href="#/" aria-label="Home" title="Home">
         <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.75 20v-6h4.5v6"/></svg></a>
-      <button class="iconbtn burger" data-menu aria-label="Menu">
-        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
       <div class="navitem"><a href="#/shop?cat=suits">Suits</a>
         <div class="mega">
           <div><h5>By cut</h5><ul>
@@ -106,7 +123,8 @@
         <b>SIR HENRY'S</b>
         <p>Premium menswear and bespoke tailoring on Kimathi Street, Nairobi, since 1967. Crafted for the distinguished gentleman.</p>
         <form class="sub" id="subForm">
-          <input type="email" placeholder="Your email" required aria-label="Email">
+          <input type="email" name="email" placeholder="Your email" required aria-label="Email"
+                 autocomplete="email" maxlength="254" data-v="email">
           <button data-magnet="0.2">Join</button>
         </form>
       </div>
@@ -118,11 +136,16 @@
         <li><a href="#/bespoke">Made to Measure</a></li><li><a href="#/wedding">Weddings &amp; Groups</a>
   <a href="#/corporate">Corporate &amp; Bulk</a></li>
         <li><a href="#/appointments">Book a Fitting</a></li>
-        <li><a href="#/corporate">Corporate Service</a></li><li><a href="#/about">Charity Programme</a></li>
-        <li><a href="#/contact">Careers</a></li></ul></div>
+        <li><a href="#/corporate">Corporate Service</a></li>
+        <!-- Both of these used to land on the top of a page that did not answer them.
+             They now land on the section, and on the form with the right subject
+             already chosen. -->
+        <li><a href="#/about?s=charity">Charity Programme</a></li>
+        <li><a href="#/contact?subject=Careers">Careers</a></li></ul></div>
       <div><h4>Visit</h4><ul>
         <li><a href="#/stores">Our Stores</a></li><li><a href="#/about">About Us</a></li>
-        <li><a href="#/contact">Contact</a></li><li><a href="#/admin">Staff Login</a></li></ul></div>
+        <li><a href="#/contact">Contact</a></li><li><a href="#/faq">Questions</a></li>
+        <li><a href="#/privacy">Privacy</a></li><li><a href="#/admin">Staff Login</a></li></ul></div>
     </div>
     <div class="ftr-bot">
       <span>&copy; 2026 Sir Henry's Limited. Nairobi, Kenya. Tel (+254) 713 619786.</span>
@@ -226,6 +249,9 @@
 
   <main class="main">
     <button class="btn ghost sm mtoggle" data-mtoggle style="margin-bottom:16px">Menu</button>
+    <!-- says, in the console itself, whether the server is actually enforcing who
+         is signed in or whether the gate in admin.js is the only thing standing -->
+    <div id="secbar"></div>
     <div id="view"></div>
   </main>
 </div>
@@ -259,6 +285,11 @@
 </aside>
 </div><!-- /#ad -->
 
+<!-- The security layer loads before anything that stores, renders or sends: data.js
+     prices carts through it, app.js and admin.js validate through it, ai.js redacts
+     through it. Nothing below this line may assume it is absent. -->
+<script src="assets/js/security.js"></script>
+<script src="assets/js/build.js"></script>
 <script src="assets/js/vendor/lenis.min.js"></script>
 <script src="assets/js/vendor/three.min.js"></script>
 <script src="assets/js/motion.js"></script>
@@ -282,6 +313,11 @@
      this one file is a module. bundle.py strips it from the portable build. -->
 <script type="module" src="assets/js/ai.js"></script>
 <script src="assets/js/ai-ui.js"></script>
-<script>Motion.boot(); SHSync.start(); SHAuth.start();</script>
+<!-- The page furniture. After both routers, because it observes their subtrees. -->
+<script src="assets/js/ux.js"></script>
+<!-- This used to be an inline <script>. It is a file now so that script-src in the
+     CSP above can be 'self' with no 'unsafe-inline' and no hash to keep in step -
+     an inline script is the one thing that forces a policy to be loose. -->
+<script src="assets/js/boot.js"></script>
 </body>
 </html>

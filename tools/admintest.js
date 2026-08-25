@@ -1,6 +1,7 @@
 /* End-to-end check of the staff console: auth gate, role limits, POS sale,
    stock decrement, alterations pipeline, corporate pipeline, barcodes. */
 const puppeteer = require('puppeteer-core');
+const signInAs=require('./signin');   // the gate has a second factor now
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const BASE = process.argv[2] || 'http://localhost:8100';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -25,12 +26,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     !!document.querySelector('.login') && !document.querySelector('#view .kpis'));
 
   // ---- 2. sign in as shop floor, confirm role limits
-  await page.evaluate(() => document.querySelector('[data-staff="ok"]').click());
-  await sleep(200);
-  await page.evaluate(() => { document.getElementById('pinInput').value = '1357'; });
-  await page.evaluate(() => document.getElementById('pinForm')
-    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-  await sleep(1800);
+  await signInAs(page, 'ok');
 
   R.floor = await page.evaluate(() => {
     const vis = [...document.querySelectorAll('#ad .side a[data-nav]')]
@@ -47,12 +43,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await page.evaluate(() => sessionStorage.clear());
   await page.goto(BASE + '/index.html#/admin', { waitUntil: 'domcontentloaded' });
   await sleep(1200);
-  await page.evaluate(() => document.querySelector('[data-staff="ha"]').click());
-  await sleep(200);
-  await page.evaluate(() => { document.getElementById('pinInput').value = '1967'; });
-  await page.evaluate(() => document.getElementById('pinForm')
-    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-  await sleep(1800);
+  await signInAs(page, 'ha');
   R.ownerNav = await page.evaluate(() => [...document.querySelectorAll('#ad .side a[data-nav]')]
     .filter(a => a.style.display !== 'none').map(a => a.dataset.nav));
 

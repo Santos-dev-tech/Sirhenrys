@@ -71,64 +71,180 @@
   }
 
   /* ================= staff authentication =================
-     The console was reachable by anyone with the URL. This gates it and limits what each
-     role can open. Demo-grade only: a real deployment must authenticate server-side. */
-  const AUTH_KEY = 'sirhenrys.staff';
-  function currentStaff() {
-    try { return JSON.parse(sessionStorage.getItem(AUTH_KEY) || 'null'); } catch (e) { return null; }
-  }
-  function signIn(id, pin) {
-    const m = SH.STAFF.find(s => s.id === id && s.pin === String(pin));
+     Rewritten against the five things a login usually gets wrong. Each is named
+     where it is handled, so the next person can see what is deliberate:
+
+       1. the session token           -> sessionStorage, no secret inside it, an
+                                         expiry and an idle timeout checked on
+                                         every render
+       2. client-side admin checks    -> this gate only DRAWS the console;
+                                         firestore.rules decides whether it can
+                                         read a thing. The banner says which of
+                                         the two is actually in force right now.
+       3. no second factor            -> TOTP, six digits, thirty second step
+       4. no rate limiting            -> five tries per person, then a lockout
+                                         that doubles each time it is hit
+       5. no strength check           -> a four-digit PIN cannot have one, so it
+                                         is backed by the factor above rather
+                                         than pretended at
+
+     Everything here is a user interface over the server rule. It stops the
+     accident and the casual poke. It is not the security boundary and does not
+     claim to be. */
+
+  function currentStaff() { return SHSec.session.read(); }
+
+  // Verify a PIN against the stored PBKDF2 hash. Returns the staff record on a
+  // match so the caller can move on to the second factor. Nothing is issued here.
+  async function checkPin(id, pin) {
+    const m = SH.STAFF.find(s => s.id === id);
     if (!m) return null;
-    const { pin: _, ...safe } = m;
-    sessionStorage.setItem(AUTH_KEY, JSON.stringify(safe));
-    return safe;
+    const v = SHSec.validate(pin, 'pin');
+    if (!v.ok) return null;
+    const got = await SHSec.pbkdf2(v.value, m.salt);
+    return SHSec.safeEqual(got, m.hash) ? m : null;
   }
-  function signOut() { sessionStorage.removeItem(AUTH_KEY); location.hash = '#/'; location.reload(); }
+
+  function startSession(m) {
+    const { salt, hash, totp, ...safe } = m;      // no credential material in the token
+    const tok = SHSec.session.issue(safe);
+    SHSec.limiter.reset('staff:' + m.id);
+    SHSec.audit.log('sign-in', m.id);
+    return tok;
+  }
+
+  function signOut() {
+    const s = currentStaff();
+    SHSec.audit.log('sign-out', s ? s.id : '');
+    SHSec.session.clear();
+    location.hash = '#/'; location.reload();
+  }
+
   const can = (view) => {
     const s = currentStaff();
     return !!s && (SH.ROLE_VIEWS[s.role] || []).includes(view);
   };
 
-  function renderLogin() {
+  /* The one check here that is not theatre. Asks Google what claims sit on this
+     ID token; a staff claim can only be written with the Admin SDK. Cached for
+     the life of the page because it costs a network round trip. */
+  let gatePromise = null;
+  const serverGate = () => (gatePromise = gatePromise || SHSec.serverGate());
+
+  async function securityBanner() {
+    const g = await serverGate();
+    const box = document.getElementById('secbar');
+    if (!box) return g;
+    if (g.available && g.staff) { box.remove(); return g; }
+    box.className = 'secbar';
+    box.innerHTML = '<svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M12 8v5M12 17h.01M10.3 3.9L2.6 17.4A2 2 0 004.3 20.4h15.4a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>' +
+      '<span><b>Demo mode.</b> There is no staff claim on this account, so the server ' +
+      'is not enforcing who you are and this gate is the only thing standing here. Run ' +
+      '<code>tools/set-staff-claims.js</code>, then swap <code>isSignedIn()</code> for ' +
+      '<code>isStaff()</code> in firestore.rules before this holds real orders.</span>';
+    return g;
+  }
+
+  function renderLogin(msg) {
     AD.classList.add('locked');
-    AD.innerHTML = `
-      <div class="login">
-        <div class="login-card">
-          <div class="login-mark">SIR HENRY'S<small>Staff Console</small></div>
-          <p class="login-hint">Sign in to continue.</p>
-          <div class="login-list">
-            ${SH.STAFF.map(s => `<button class="login-who" data-staff="${s.id}">
-              <b>${esc(s.name)}</b><span>${esc(s.title)}</span></button>`).join('')}
-          </div>
-          <form id="pinForm" class="hide">
-            <div class="field"><label id="pinWho">PIN</label>
-              <input id="pinInput" type="password" inputmode="numeric" maxlength="4"
-                     autocomplete="off" placeholder="4-digit PIN"></div>
-            <button class="btn" style="width:100%">Sign in</button>
-            <p class="login-err hide" id="pinErr">That PIN is not right.</p>
-            <button type="button" class="login-back" id="pinBack">Choose someone else</button>
-          </form>
-          <p class="login-demo">Demo PINs &mdash; Owner 1967 &middot; Manager 2468 &middot; Shop floor 1357</p>
-        </div>
-      </div>`;
-    let who = null;
-    document.querySelectorAll('[data-staff]').forEach(b => b.onclick = () => {
+    const demo = SH_SECURITY.demoHints;
+    AD.innerHTML =
+      '<div class="login"><div class="login-card">' +
+        '<div class="login-mark">SIR HENRY\'S<small>Staff Console</small></div>' +
+        '<p class="login-hint">' + esc(msg || 'Sign in to continue.') + '</p>' +
+        '<div class="login-list">' +
+          SH.STAFF.map(s => '<button class="login-who" data-staff="' + esc(s.id) + '">' +
+            '<b>' + esc(s.name) + '</b><span>' + esc(s.title) + '</span></button>').join('') +
+        '</div>' +
+        '<form id="pinForm" class="hide" autocomplete="off">' +
+          '<div class="field"><label id="pinWho" for="pinInput">PIN</label>' +
+            '<input id="pinInput" type="password" inputmode="numeric" maxlength="4" ' +
+                   'autocomplete="off" spellcheck="false" data-v="pin" placeholder="4-digit PIN"></div>' +
+          '<div class="field hide" id="otpField"><label for="otpInput">Authenticator code</label>' +
+            '<input id="otpInput" type="text" inputmode="numeric" maxlength="6" ' +
+                   'autocomplete="one-time-code" spellcheck="false" data-v="otp" placeholder="6-digit code">' +
+            (demo ? '<div class="otp-row"><span class="otp-left" id="otpDemo"></span></div>' : '') +
+          '</div>' +
+          '<button class="btn" style="width:100%" id="pinGo">Continue</button>' +
+          '<p class="login-err hide" id="pinErr">That PIN is not right.</p>' +
+          '<p class="login-lock hide" id="pinLock"></p>' +
+          '<button type="button" class="login-back" id="pinBack">Choose someone else</button>' +
+        '</form>' +
+        (demo ? '<p class="login-demo">Demo PINs &mdash; Owner 1967 &middot; Manager 2468 &middot; ' +
+          'Shop floor 1357. The authenticator code appears above the button while ' +
+          '<code>SH_SECURITY.demoHints</code> is on.</p>' : '') +
+      '</div></div>';
+
+    let who = null, stage = 'pin', verified = null, otpTimer = 0;
+    const err = m => { const e = AD.querySelector('#pinErr'); e.textContent = m; e.classList.remove('hide'); };
+    const lock = m => { const e = AD.querySelector('#pinLock'); e.textContent = m || ''; e.classList.toggle('hide', !m); };
+
+    AD.querySelectorAll('[data-staff]').forEach(b => b.onclick = () => {
       who = b.dataset.staff;
-      document.querySelector('.login-list').classList.add('hide');
+      AD.querySelector('.login-list').classList.add('hide');
       AD.querySelector('#pinForm').classList.remove('hide');
       AD.querySelector('#pinWho').textContent = 'PIN for ' + SH.STAFF.find(s => s.id === who).name;
       AD.querySelector('#pinInput').focus();
+      const st = SHSec.limiter.check('staff:' + who);
+      if (!st.ok) lock(st.error);
     });
-    AD.querySelector('#pinBack').onclick = () => { reshell(); renderLogin(); };
-    AD.querySelector('#pinForm').onsubmit = e => {
+
+    AD.querySelector('#pinBack').onclick = () => { clearInterval(otpTimer); reshell(); renderLogin(); };
+
+    AD.querySelector('#pinForm').onsubmit = async e => {
       e.preventDefault();
-      if (signIn(who, AD.querySelector('#pinInput').value)) { reshell(); render(); }
-      else {
-        AD.querySelector('#pinErr').classList.remove('hide');
-        AD.querySelector('#pinInput').value = '';
-        AD.querySelector('#pinInput').focus();
-      }
+      const btn = AD.querySelector('#pinGo');
+      const gate = SHSec.limiter.check('staff:' + who);
+      if (!gate.ok) { lock(gate.error); return; }
+
+      btn.disabled = true;
+      try {
+        if (stage === 'pin') {
+          const m = await checkPin(who, AD.querySelector('#pinInput').value);
+          if (!m) {
+            const r = SHSec.limiter.fail('staff:' + who);
+            SHSec.audit.log('sign-in-fail', who);
+            AD.querySelector('#pinInput').value = '';
+            AD.querySelector('#pinInput').focus();
+            if (!r.ok) { err('That PIN is not right.'); lock(r.error); }
+            else { err('That PIN is not right. ' + r.left + ' attempt' + (r.left === 1 ? '' : 's') + ' left.'); lock(''); }
+            return;
+          }
+          // The PIN was right. Nothing is issued until the second factor is in.
+          verified = m; stage = 'otp';
+          AD.querySelector('#pinErr').classList.add('hide');
+          AD.querySelector('#pinInput').closest('.field').classList.add('hide');
+          AD.querySelector('#otpField').classList.remove('hide');
+          AD.querySelector('#pinWho').textContent = 'Authenticator code for ' + m.name;
+          btn.textContent = 'Sign in';
+          AD.querySelector('#otpInput').focus();
+          if (SH_SECURITY.demoHints) {
+            const paint = async () => {
+              const el = AD.querySelector('#otpDemo');
+              if (!el) { clearInterval(otpTimer); return; }
+              const code = await SHSec.totp.now(m.totp);
+              el.textContent = 'Demo code ' + code + ' - ' + SHSec.totp.secondsLeft() + 's left';
+            };
+            paint(); otpTimer = setInterval(paint, 1000);
+          }
+          return;
+        }
+
+        const code = AD.querySelector('#otpInput').value;
+        if (!(await SHSec.totp.verify(verified.totp, code))) {
+          const r = SHSec.limiter.fail('staff:' + who);
+          SHSec.audit.log('otp-fail', who);
+          AD.querySelector('#otpInput').value = '';
+          AD.querySelector('#otpInput').focus();
+          if (!r.ok) { err('That code is not right.'); lock(r.error); }
+          else { err('That code is not right. ' + r.left + ' attempt' + (r.left === 1 ? '' : 's') + ' left.'); }
+          return;
+        }
+        clearInterval(otpTimer);
+        startSession(verified);
+        reshell(); render();
+      } finally { btn.disabled = false; }
     };
   }
 
@@ -746,9 +862,18 @@
     if (!/^\/admin(\/|\?|$)/.test(raw)) { AD.hidden = true; return; }
     AD.hidden = false;
 
-    const staff = currentStaff();
-    if (!staff) { renderLogin(); return; }
+    // Session expiry and the idle timeout are checked here, on every render, not
+    // on a timer. A console left open on the counter therefore locks itself the
+    // moment somebody comes back and touches it, which is the point at which it
+    // matters, and there is no interval left running on a page nobody is using.
+    const staff = SHSec.session.touch();
+    if (!staff) {
+      const stale = sessionStorage.getItem(SHSec.session.KEY);
+      renderLogin(stale ? 'That session timed out. Sign in again.' : 'Sign in to continue.');
+      return;
+    }
     if (AD.classList.contains('locked')) reshell();
+    securityBanner();
 
     const [path, q] = raw.slice(BASE.length).split('?');
     let key = path.split('/').filter(Boolean)[0] || '';

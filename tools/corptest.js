@@ -1,6 +1,7 @@
 /* Marking a corporate enquiry Won must create exactly one real order, priced at the
    volume tier, and must not create a second one if Won is clicked again. */
 const puppeteer=require('puppeteer-core');
+const signInAs=require('./signin');   // the gate has a second factor now
 const CHROME=process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
@@ -10,14 +11,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const errs=[]; p.on('pageerror',e=>errs.push(e.message));
  await p.goto('http://localhost:8100/index.html#/admin',{waitUntil:'domcontentloaded',timeout:60000});
  await sleep(4500);
- await p.evaluate(async()=>{
-   const wait=ms=>new Promise(r=>setTimeout(r,ms));
-   const ad=document.getElementById('ad');
-   ad.querySelector('[data-staff="ha"]').click(); await wait(300);
-   ad.querySelector('#pinInput').value='1967';
-   ad.querySelector('#pinForm').dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));
- });
- await sleep(1500);
+ await signInAs(p,'ha');
  const out=await p.evaluate(async()=>{
    const wait=ms=>new Promise(r=>setTimeout(r,ms));
    const res={};

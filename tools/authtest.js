@@ -38,8 +38,12 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  // a real round trip against whatever the project allows
  const email='test'+Date.now()+'@example.com';
  const signup=await p.evaluate(async e=>{
-   const r=await SHAuth.signUp('Test Buyer', e, 'sirhenrys123');
-   return {ok:r.ok, local:!!r.local, error:r.error||null, current:SHAuth.current()};
+   // the policy now lives in SHAuth.signUp itself, so a weak one must be refused
+   // there and not only on the form
+   const weak=await SHAuth.signUp('Test Buyer', e, 'sirhenrys123');
+   const r=await SHAuth.signUp('Test Buyer', e, 'Kimathi-Street-1967!');
+   return {ok:r.ok, local:!!r.local, error:r.error||null, current:SHAuth.current(),
+           weakRefused:{ok:weak.ok, error:weak.error||null}};
  }, email);
  out.signUp=signup;
  if(signup.ok){

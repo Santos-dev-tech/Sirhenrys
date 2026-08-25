@@ -1,3 +1,67 @@
+# Cloudflare Pages / Netlify headers.
+#
+# The same policy is also in firebase.json for Firebase Hosting, and as a meta tag
+# in index.html so that the portable single-file build and anything served by a host
+# that drops headers still gets it. Three copies is two too many, so tools/audittest.js
+# compares them and fails if they drift apart.
+
+/*
+  # --- Content Security Policy ---------------------------------------------
+  # script-src is 'self' plus Google's reCAPTCHA, and nothing else. No
+  # 'unsafe-inline' and no 'unsafe-eval': the one inline <script> this page had
+  # was moved to assets/js/boot.js precisely so this line could stay this short.
+  # An injected <script> or an onerror= attribute now simply does not run.
+  #
+  # style-src still carries 'unsafe-inline'. That is not laziness - the storefront
+  # writes style="" attributes on rendered cards in a few dozen places, and CSP
+  # cannot hash an attribute. It is the weakest line here and it is the one to fix
+  # next; the cost is real (a style attribute can leak data through a background
+  # image URL) but it cannot execute anything.
+  #
+  # apis.google.com and accounts.google.com are there for Continue with Google:
+  # Firebase Auth's popup loads gapi from the first and opens the account chooser
+  # on the second. Without them the button is blocked by the browser and fails
+  # silently - a CSP block is not an auth error and never reaches the error handler.
+  #
+  # connect-src is scoped to Google's API hosts because that is where Firestore,
+  # Auth, App Check and AI Logic all live. Anything else the page tries to talk to
+  # is refused by the browser, which is the control that would have contained most
+  # of the supply-chain incidents of the last few years.
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://www.google.com https://www.gstatic.com; media-src 'self' blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://www.google.com https://firebaselogging-pa.googleapis.com wss://*.firebaseio.com; frame-src https://www.google.com https://accounts.google.com https://sir-henrys.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests
+
+  # --- Transport -------------------------------------------------------------
+  # Two years, subdomains included, and preload-eligible. Read this before adding
+  # preload to the list at hstspreload.org: it is very hard to undo, and every
+  # subdomain of sirhenrys.co.ke must be able to serve HTTPS first.
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+  # --- The classics ----------------------------------------------------------
+  # frame-ancestors above is the modern control; X-Frame-Options is here for the
+  # browsers and corporate proxies that never learned it.
+  X-Frame-Options: DENY
+  # Stops a browser guessing that an uploaded .jpg is really HTML and running it.
+  X-Content-Type-Options: nosniff
+  # Send the full URL to ourselves, only the origin to anyone else, nothing at all
+  # over plain http. A product URL is not private; a checkout URL should not travel.
+  Referrer-Policy: strict-origin-when-cross-origin
+  # This is a menswear shop. It has no business reading a camera or a location.
+  Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(self), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), interest-cohort=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), xr-spatial-tracking=()
+  # Cross-origin isolation. COEP is deliberately NOT set: it would break the
+  # reCAPTCHA frame, and the isolation it buys is only useful to code that wants
+  # SharedArrayBuffer, which nothing here does.
+  #
+  # allow-popups, NOT plain same-origin. Plain same-origin severs window.opener for
+  # any popup this page opens - which is precisely the channel Firebase Auth's
+  # signInWithPopup uses to hand the credential back. With it set strictly the
+  # Google button opens a window, the user signs in, and nothing ever returns.
+  # allow-popups keeps the protection that matters (another origin cannot open us
+  # and keep a handle) and gives back the one we need.
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Cross-Origin-Resource-Policy: same-origin
+  # Belt and braces against a proxy that decides to be helpful.
+  X-Permitted-Cross-Domain-Policies: none
+  X-DNS-Prefetch-Control: off
+
 # Images, frames and vendored libraries never change without a new filename, so they can
 # be cached hard. A returning visitor then re-downloads almost nothing.
 /assets/img/*
@@ -17,3 +81,15 @@
 # The shell must never be cached, or a deploy does not reach anyone holding the old one.
 /index.html
   Cache-Control: no-cache
+
+# Nothing that touches an account or a credential may sit in a shared cache, and
+# nothing about it belongs in a referrer.
+/admin.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+
+# Machine-readable contact for anyone who finds a hole. Cheap, and it is the
+# difference between a report and a disclosure.
+/.well-known/security.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=86400

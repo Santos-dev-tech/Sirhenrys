@@ -1,0 +1,12 @@
+# Sir Henry's Limited - how to report a security problem
+#
+# If you have found something, please tell us before you tell anyone else. We
+# will not take legal action against anyone who reports in good faith, does not
+# access or alter another person's data, and gives us reasonable time to fix it.
+
+Contact: mailto:security@sirhenrys.co.ke
+Contact: tel:+254713619786
+Preferred-Languages: en, sw
+Canonical: https://sirhenrys.pages.dev/.well-known/security.txt
+Policy: https://sirhenrys.pages.dev/#/privacy
+Expires: 2027-08-24T00:00:00.000Z

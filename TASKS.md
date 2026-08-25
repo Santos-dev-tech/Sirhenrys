@@ -278,7 +278,8 @@ changes; sync comes up on the next load.
 
 ## 13. 4K pro, and what the research bought  `[x]`
 
-Ten credits on a fresh account (`bintiinurii@gmail.com`). Spent as instructed: 4K pro first,
+Ten credits on a fresh account (a personal Higgsfield login, deliberately not recorded
+here). Spent as instructed: 4K pro first,
 then research before touching the rest.
 
 ### 4K pro on the dressing clip
@@ -782,3 +783,363 @@ domain, which is the only place it does anything.
 
 Verified after both fixes, on localhost: `syncOn:true` with a real uid, assistant ready,
 72 products, **no errors**.
+
+---
+
+## 22. The launch checklist — 45 items, measured  `[x]`
+
+Three videos, taken as a specification: twenty security items to do before launching,
+twenty interface items to add to a website, five ways a hand-rolled login is not secure.
+Everything below is verified by `tools/audittest.js`, which measures rather than asserts
+and exits with the number of failures. **56/56 passing.**
+
+    python tools/serve.py 8100
+    node tools/audittest.js
+
+### The one thing worth reading first
+
+A browser cannot keep a secret from the person holding the browser. The PIN gate, the role
+menu and the rate limiter are a **user interface** over the real enforcement, which is
+`firestore.rules` running on Google's servers against a custom claim this page cannot mint.
+Both are needed; only one is trustworthy, and `assets/js/security.js` says so at the top of
+the file rather than implying otherwise.
+
+The previous version's real failing was not that the rules were permissive. It was that
+nothing on the running site admitted it. **The console now shows a warning bar on every
+page while there is no staff claim on the account** — measured at 1144×63 above the till.
+
+### Security — the twenty
+
+| # | Item | Where | Measured |
+|---|---|---|---|
+| 1 | Hide API keys | `tools/secretscan.py` | working tree clean |
+| 2 | Purge git secrets | `tools/secretscan.py --history` | every commit ever made, clean |
+| 3 | Public DB key | `firebase-config.js` | it is an `AIza…` web key; no service account anywhere |
+| 4 | Row-level security | `firestore.rules` | `/customers/{uid}` gated on `request.auth.uid == uid` |
+| 5 | Encrypt sensitive data | `SHSec.secureSet` | AES-GCM 256; name and phone absent from the stored blob, round trip exact |
+| 6 | Server-side auth | `firestore.rules` + `SHSec.serverGate` | staff custom claim, read back with `getIdTokenResult` |
+| 7 | Lock record access | rules + `ROLE_VIEWS` | shop floor asking for settings gets "Not available" and sees 3 of 13 sections |
+| 8 | Block field tampering | `SHSec.reprice` | a line claiming KSh 1 for a KSh 39,950 suit was caught and repriced; qty −5 removes the line |
+| 9 | Secure session cookies | `SHSec.cookie` | `Path=/; SameSite=Strict`, `Secure` on https; no session token in a cookie |
+| 10 | Hash passwords | `data.js` | no plaintext PIN ships; PBKDF2-SHA256 ×210,000 with a 128-bit salt each |
+| 11 | Rate limit login | `SHSec.limiter` | locked out on attempt 5, lockout doubles each time |
+| 12 | Bot protection | `SHSec.bot` | honeypot at x=−9999, aria-hidden, on 4 forms; filling it blocks the submit |
+| 13 | Parameterise queries | `data.js` | search is `String.includes`; no regex built from input |
+| 14 | Validate all input | `SHSec.validate` | bad email, short phone, 9,000 chars, `<script>` and an out-of-range number all refused |
+| 15 | Escape user content | `SHSec.esc` | now covers `' / \`` too, and the assistant's card title — which was raw |
+| 16 | Restrict file uploads | `SHSec.checkUpload` | magic bytes, not the extension: PNG-called-.php and PHP-called-.jpg both refused |
+| 17 | Trim API responses | `ai.js` + `SHSec.redact` | Google no longer receives a customer name or phone number |
+| 18 | Security headers | `_headers`, `firebase.json`, meta | 8 headers on both hosts; the CSP is identical in all three places |
+| 19 | Force HTTPS | HSTS + CSP | 2 years, subdomains, preload-eligible, plus `upgrade-insecure-requests` |
+| 20 | Scan dependencies | `tools/depscan.py` | every vendored file matches its recorded sha256; npm audit clean |
+
+### The login — the five
+
+1. **Session token.** `sessionStorage`, not `localStorage`. Keys are `exp iat id jti name
+   role seen store title` — no PIN, hash, salt or secret inside. Expires after a shift,
+   and after 15 minutes idle, checked on every render rather than on a timer.
+2. **Client-side admin checks.** Still draws the console; no longer decides anything. The
+   banner says which is in force.
+3. **No second factor.** TOTP now — RFC 6238, six digits, thirty second step, built on
+   WebCrypto. Measured: the right PIN alone issued nothing and asked for a code; a wrong
+   code was refused; the live code signed in.
+4. **No rate limiting.** Five tries per person, then a doubling lockout.
+5. **No strength check.** A four-digit PIN cannot have one, so it is backed by the factor
+   above instead of pretended at. Customer passwords get a real one, in `SHAuth.signUp`
+   itself and not only on the form: `"password"` scores 1/4 and is refused.
+
+### Interface — the twenty
+
+Nine were already here and are now measured: search, mobile menu, loading, hover states,
+scroll progress, sticky header, floating contact, form errors, print (console only).
+Eleven are new: **dark mode** (three states — dark, light, and follow the system),
+**consent banner** with two buttons of genuinely equal weight, **back to top**, **skip to
+content**, **password visibility**, **UTM capture** (first touch *and* last touch, stripped
+from the address bar), **form success states**, **confirmation dialogs**, **last updated**,
+**FAQ accordions**, **copy buttons**, and a **print stylesheet for the storefront**.
+
+### Two real bugs the measuring found
+
+**The menu button did not exist on a phone.** `<button class="burger">` sat inside
+`<nav class="nav">`, and `.nav` is `display:none` below 860px. Measured at 390px: **0×0**.
+Clicking it in a test worked, because `.click()` works on a hidden element — which is
+exactly why a test that only clicks proves nothing. It is a sibling of `.nav` now, 44×44.
+
+**The consent bar was unreadable in dark mode.** Its background was `var(--ink)`, which
+inverts to near-white, and its text was hard-coded light grey. Every number passed: right
+height, two 40px buttons, choice persisted. Only looking at the screenshot found it. It has
+its own four tokens now — and `tools/audittest.js` measures WCAG contrast in both themes so
+the next one fails a build instead of a customer. Worst of twelve measurements: 4.93:1.
+
+### Beyond the three lists
+
+Clickjacking (frame-ancestors + X-Frame-Options + a frame-buster that fails closed),
+session expiry and idle timeout, an audit trail, `.well-known/security.txt`, **zero inline
+scripts** so `script-src` can stay `'self'` with no `unsafe-inline`, constant-time
+credential comparison, PII redaction on the way to the model with rehydration on the way
+back, 40px tap targets on every new control, a clean console under the CSP, and contrast
+measured in both themes.
+
+### What is still open, said plainly
+
+- **`style-src` still carries `'unsafe-inline'`.** The storefront writes `style=""`
+  attributes on rendered cards in a few dozen places and CSP cannot hash an attribute. It
+  cannot execute anything, but it is the weakest line in the policy and it is the next one
+  to fix.
+- **`DEMO()` in `firestore.rules` is still `true`.** Deliberate, documented at the top of
+  that file with the four steps to turn it off, and now visible on screen in the console.
+- **three.js r144 and Firebase 10.14.1 are behind.** Both recorded in `tools/deps.json`
+  with the reasoning; neither has a known exploit path in how this site uses them.
+- **A four-digit PIN is ten thousand possibilities.** Hashing slows a grinder; it is the
+  server claim that stops one.
+
+---
+
+## 23. Dark mode, done properly  `[x]`
+
+The first pass at dark mode swapped six custom properties and shipped. Reported by the
+user, in this order: the hero headline was invisible, then the nav was invisible, then
+"just do a whole sweep and do better."
+
+Both reports were the same bug. **A theme is only as deep as your tokens.** Swapping
+custom properties reaches colours that were *written* as custom properties, and site.css
+and admin.css hard-coded about seventy between them — a cream wash over the hero, a white
+bar behind the sticky header, `#fff` on every filled button, `#fff` on every card in the
+console. All of it invisible to the swap and invisible to a spot check.
+
+### The tool first
+
+`tools/darktest.js` walks **every route of both halves, in both themes, at 1440px and
+390px**, and measures the WCAG 2.1 contrast of every element that paints text against the
+first ancestor that paints a background. It composites translucent layers and `::before` /
+`::after` scrims the way the eye sees them, and reports one line per unique signature so a
+bad rule in ninety cards is one finding, not ninety.
+
+    node tools/darktest.js            # dark only
+    node tools/darktest.js --light    # both themes
+
+**First run: 76 distinct failures.** The console was essentially unusable — white cards
+with near-white text on every page of the till.
+
+### What the fix actually was
+
+Not more overrides. Both stylesheets were made **token-driven for every surface that has
+to flip**, and the tokens were split by *what a surface is for*:
+
+| token | what it is | light | dark |
+|---|---|---|---|
+| `--invert-bg/fg` | a small **filled control** — primary button, selected chip, tag, toast | dark fill, pale text | **pale fill, dark text** — a true inversion, because a dark-grey button on a dark-grey page reads as disabled |
+| `--panel-bg/fg/mute` | a large **inverted surface** — footer, announcement strip, console sidebar, login backdrop | dark slab | **lifted dark panel** — a white footer across a dark page is a torch in the face |
+| `--scrim-rgb` | the gradient that keeps the hero headline legible over the models | cream | near-black |
+| `--glass-rgb` | the frosted bar the header becomes off the hero | white | near-black |
+| `--surface` (console) | every card, panel, table, drawer and input | `#fff` | `#17150f` |
+| `--room-bg` | the WebGL gallery — **and the shader's dissolve colour** | `#f2f0ec` | `#141210` |
+
+Those were one token to begin with, and one of the two jobs had to be wrong whichever
+value it took. That is what put a white footer under a dark page.
+
+The room needed motion.js as well: distant figures are mixed into the page colour by a
+shader uniform, so the CSS and the WebGL scene read the same custom property and
+`Motion.retheme()` hands the new value over when the theme changes. Two literals had
+already drifted.
+
+### Three things it found that were never dark-mode bugs
+
+- **`--ink-4` measured 2.92:1 on white.** It carries breadcrumbs, strikethrough prices,
+  table headers and the brand line on every card — the smallest text on the site was the
+  least readable, in the theme that has shipped for months. The muted end of the ladder is
+  darkened: `--ink-3` `#6f6a65 → #5f5a55`, `--ink-4` `#9c9691 → #726c66`. Four distinct
+  steps kept, all clearing 4.5:1 on white, on bone and on the gallery ground.
+- **The console sidebar's section headings** were `#6d6862` on `#151515` — 3.6:1, in both
+  themes.
+- **The warn pill** was 4.17:1 on its own background.
+
+### And three bugs in the tool itself, all found by it reporting things that were fine
+
+1. It broke out of the ancestor walk on the first opaque background *before* checking that
+   same element's `::after` and its `<img>` — so a category tile (opaque bone, photograph,
+   dark gradient) reported as white text on bone.
+2. It counted any absolutely-positioned pseudo-element as the backdrop. The nav's hover
+   underline is a 1px `::after` filled with bronze, so every nav link came back at 2:1. A
+   pseudo now only counts if it actually covers the text.
+3. Text over photography has no single background colour. Where the site's answer is a
+   gradient or a text-shadow, it is listed for the contact sheet rather than counted.
+
+**Now: `PASS — every text element measured clears WCAG AA in dark and light`,** across 17
+storefront routes, 9 console routes, two viewports, both themes. Screenshots via
+`node tools/darkshot.js`, and they were looked at — the console login backdrop was still a
+cream field with a dark card on it, which no number would ever have caught.
+
+## 24. Two footer links that went nowhere  `[x]`
+
+"Charity Programme" pointed at the top of `/about`, where the programme was one sentence in
+the fourth paragraph. "Careers" pointed at the top of `/contact`, where the only careers
+content was an option in a dropdown nobody scrolls to. Both technically worked. Neither
+answered the question.
+
+Rather than invent pages — inventing detail about a real Nairobi business's charity work or
+hiring would be worse than a weak link — both now land on what already exists, in the state
+that answers it:
+
+- **Charity Programme** → `#/about?s=charity`, a real section with an id, built from the
+  claim the page already made. A hash router cannot also use the hash for an anchor, so the
+  section is named in the query and scrolled to after render. Measured: lands with the
+  heading 147px into the viewport, just clear of the sticky header.
+- **Careers** → `#/contact?subject=Careers`. The page retitles itself "Work with us",
+  preselects the subject, and shows a short note about how the workshop actually hires.
+
+---
+
+## 25. The lookbook — and the reason it looked broken  `[x]`
+
+Reported as "the background of the models is whitish and it looks confusing and bad".
+The chroma key was the obvious suspect and it was not the cause.
+
+### What was actually wrong
+
+The dressing sequence on the home page is **97 frames of 1920×1101, 123KB each — 11.7MB** —
+and every one was a plain `<img src>` in the markup. A browser opens six connections per
+host, so those 97 requests formed a queue that everything else on the site sat behind.
+
+**Measured**: with the sequence in flight, a plain `new Image()` for a 68KB plate
+**timed out after 8 seconds, on localhost**. The lookbook's thirteen textures never
+arrived, so the room drew un-textured planes. The "whitish backgrounds" were bare
+rectangles, not a failed key.
+
+Probing `Motion.rail()` showed all thirteen meshes with no image and `uKey` still at its
+default. That was the moment it stopped being a shader problem.
+
+### Four changes
+
+1. **The sequence loads progressively.** Eight frames eager, the rest promoted from
+   `data-src` three at a time, and a frame the scroll needs jumps the queue. While a needed
+   frame is still coming the last one that arrived stays on screen, so the sequence
+   degrades to a lower frame rate rather than to an empty stage. **11.7MB → ~1MB** on first
+   paint.
+2. **The room loads the card variants.** 760×1013 at 68KB rather than 1536×2048 at 450KB —
+   **880KB for the set instead of 5.7MB**, and still more pixels than the plane uses.
+3. **The key follows the ground gradient.** Measured across the plates, the studio ground
+   runs 15–30 levels darker at the floor than the top and differs per plate. One sampled
+   colour left the bottom of the rectangle at about 19% opacity — invisible on white, a
+   grey slab on black. It samples a top and a bottom colour now and interpolates, and
+   whatever survives is pushed toward the page colour so residue is correct in either theme.
+4. **The floor falls into the room.** The cast shadow is *darker* than the ground
+   (measured 153,156,150 against 193,201,203), so no colour key removes it — it is a
+   gradient sitting between ground and garment, and keying it leaves a dithered fringe. A
+   gradient over the canvas removes it outright, at any plate size or camera position, and
+   it is the section's own idea: it is called "every garment in one light".
+
+**Both themes gained.** Before this, one model rendered in either theme; now the whole rail
+does. `node tools/roomkey.js` renders it in both and writes `_shots/roomkey-*.png`.
+
+### Three bugs found on the way
+
+- **`&middot;` was double-escaped** — `roomHTML` runs its subtitle through `esc()`, so the
+  page read `THE ROOM &MIDDOT; EVERY GARMENT IN ONE LIGHT`.
+- **The media-query dark block was missing `--room-bg`.** A visitor whose system is dark and
+  who never touched the toggle got a white gallery in a black page. Two blocks that have to
+  stay identical is a standing hazard.
+- **`color-mix()` silently killed the whole rule.** The first floor gradient used
+  `color-mix(in srgb, …)`. An unsupported CSS function does not degrade — it invalidates the
+  entire declaration, so the fade did not exist and nothing changed on screen through three
+  rounds of tuning. Written as `rgba(var(--room-rgb), …)` now.
+
+## 26. WhatsApp — the channel that matters here  `[x]`
+
+The research is unambiguous: a comparable Kenyan fashion brand reported **70% of all orders
+arriving on WhatsApp**, and 64% of online adults say they would rather message a business
+than visit a shop. See `RESEARCH.md` section B.
+
+The bag message was already right — `waBasket()` writes every line with its size, quantity
+and price, and the total. Three things were not:
+
+1. **The product page's link was built once at render with an empty size.** A customer who
+   chose a 52 and tapped "Ask about this on WhatsApp" sent a message that did not mention
+   52, so the shop had to ask — the exact friction a prefilled message exists to remove.
+   It follows the size selection now.
+2. **Neither message carried a reference.** An assistant reading "I would like to order" had
+   nothing to type into the console to find that person again. Both carry `Ref SH-Wxxxxx`,
+   fresh per message.
+3. **Every enquiry went to the CBD number.** `settings.whatsapp` holds a number per branch
+   and every call site passed `null`. Meanwhile the app already knows, live and per branch,
+   which store is holding a 52. The link now goes to the branch with the most stock in the
+   chosen size and the message names it: *"I can see it at Westgate Mall. Could you hold
+   one?"*
+
+**Verified**: `node tools/watest.js` — 10/10, including that the routed number differs from
+the CBD default and that two messages never share a reference.
+
+## A note on running these harnesses
+
+They drive a real Chrome against a single-process Python server and pull a few hundred
+images per run. **On a loaded machine they produce failures that are not real** — a stalled
+navigation reads as a missing element, and a mid-flight CSS transition reads as a contrast
+failure. Three separate "regressions" during this work were the machine, not the code.
+
+If a run fails, before believing it:
+
+    Get-Process chrome | Stop-Process -Force      # stray instances from earlier runs
+    # restart python tools/serve.py
+    # then run it again
+
+`audittest.js` retries itself once if the browser crashes. All the navigation timeouts are
+raised to 120s. A failure that survives a clean re-run is real; one that moves between runs
+is not.
+
+---
+
+## 27. Continue with Google  `[x]`
+
+The providers were switched on in the Firebase console and nothing in the app ever
+called them. `auth.js` knew `createUserWithEmailAndPassword` and
+`signInWithEmailAndPassword` and nothing else, so the only way into an account was
+to invent a password.
+
+**The card now leads with Google** and offers email underneath, because one tap with
+an account you already have beats a password you have to make up — and this audience
+signs in to everything else that way.
+
+### What went in
+
+- `SHAuth.signInWithGoogle()` — **popup first**, because a popup keeps the page and
+  the bag exactly where they are. A browser that refuses popups, or any in-app
+  browser (Instagram, Facebook) that refuses them silently, falls back to a full
+  redirect rather than dead-ending. `getRedirectResult()` picks that up on the way
+  back, and anything that failed there surfaces on the card.
+- `prompt: 'select_account'` every time. Without it a shared counter laptop signs the
+  second person in as the first, which in a shop is not hypothetical.
+- Provider-specific errors in `readable()`: popup blocked, unauthorised domain (with
+  the exact console path and the hostname to add), and
+  `account-exists-with-different-credential`, which is the one that confuses people.
+  A cancelled popup says **nothing** — they changed their mind, that is not an error.
+- The server's own words under a collapsed toggle beside the friendly message, the
+  same as the assistant panel does, for the same reason.
+
+### Three things that would have made the button silently do nothing
+
+None of these are auth errors, and none reach an error handler — which is why they
+are the ones worth writing down:
+
+1. **`script-src` did not allow `apis.google.com`.** Firebase Auth loads gapi from
+   there for the popup flow.
+2. **`frame-src` did not allow `accounts.google.com`.** The account chooser is an
+   iframe; the project's own authDomain was already allowed and serves
+   `/__/auth/iframe`.
+3. **`Cross-Origin-Opener-Policy: same-origin` severs `window.opener`** — which is
+   precisely the channel `signInWithPopup` uses to hand the credential back. Set
+   strictly, the window opens, the user signs in, and nothing ever returns. It is
+   `same-origin-allow-popups` now: still no other origin can open us and keep a
+   handle, but a popup we opened can answer.
+
+All three CSP copies (`_headers`, `firebase.json`, the meta tag) were edited from the
+header's value, and `tools/audittest.js` still confirms they agree.
+
+**Verified:** `node tools/googletest.js` — 10/10. It intercepts the SDK call to read
+the provider the app builds (`google.com`, scopes `profile email`,
+`prompt=select_account`), checks the policy from the files, and asserts a failure
+produces both a message and the raw error rather than a dead button.
+
+**The last step is manual and the harness says so** rather than implying it is
+covered: open `#/account`, press the button, and sign in with a real account. If it
+reports an unauthorised domain, add the host in Firebase console → Authentication →
+Settings → Authorised domains.

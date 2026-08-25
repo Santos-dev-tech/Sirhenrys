@@ -53,8 +53,13 @@
     const log = logEl(); if (!log) return;
     const d = document.createElement('div');
     d.className = 'ai-did';
-    d.innerHTML = '<b>' + title + '</b><br>' + lines.map(l =>
-      String(l).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))).join('<br>');
+    // Every character on this card came from a language model, and some of what
+    // that model read came from a form a stranger filled in on the storefront. The
+    // title was being written into innerHTML raw, which is one crafted corporate
+    // enquiry away from script in the till. Both halves go through SHSec.esc now,
+    // and the names go back from pseudonyms to real people on the way in.
+    d.innerHTML = '<b>' + SHSec.esc(SHSec.rehydrate(title)) + '</b><br>' +
+      lines.map(l => SHSec.esc(SHSec.rehydrate(l))).join('<br>');
     if (actionLabel) {
       const b = document.createElement('button');
       b.className = 'btn sm';
@@ -149,7 +154,9 @@
       }
       return;
     }
-    say('it', r.text || 'Done.');
+    // Names were pseudonymised on the way out to Google. Put them back for the
+    // person reading, who needs to know it is Brian Otieno's jacket.
+    say('it', SHSec.rehydrate(r.text || 'Done.'));
     history.push({ role: 'user', parts: [{ text }] });
     history.push({ role: 'model', parts: [{ text: r.text || '' }] });
     if (history.length > 12) history = history.slice(-12);   // keep the bill bounded

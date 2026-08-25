@@ -30,3 +30,115 @@ firebase-debug.log
 pitch/node_modules/
 pitch/package-lock.json
 pitch/*.pdf
+
+# =============================================================================
+# Credentials and anything that could become one
+# =============================================================================
+# A .gitignore does not untrack a file that is already committed, and it does not
+# reach into history. It stops the NEXT mistake. tools/secretscan.py --history is
+# what checks the ones already made; run it before every push.
+
+# ---- environment and config that carries keys ----
+.env
+.env.*
+!.env.example
+*.env
+env.json
+config.local.*
+secrets/
+private/
+.secrets*
+
+# ---- private keys and certificates ----
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.asc
+*.gpg
+*.ppk
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+*.crt
+*.cer
+*.der
+!**/public*.pem
+
+# ---- Google / Firebase ----
+# A service account key bypasses firestore.rules entirely: it is root on the whole
+# project. There is no situation in which one belongs in this repository.
+serviceAccount*.json
+service-account*.json
+*-firebase-adminsdk-*.json
+*firebase-adminsdk*
+google-services.json
+GoogleService-Info.plist
+gcloud-*.json
+application_default_credentials.json
+firebase-debug*.log
+ui-debug.log
+database-debug.log
+.firebase/
+.runtimeconfig.json
+
+# ---- M-Pesa / Daraja ----
+# Consumer secret and passkey. With them, somebody else pushes STK prompts to your
+# customers' phones under your shortcode.
+daraja*.json
+mpesa*.json
+*consumer_secret*
+*passkey*
+
+# ---- package registries and CI ----
+.npmrc
+.yarnrc
+.pypirc
+.netrc
+_netrc
+.docker/config.json
+.aws/
+.azure/
+*.tfvars
+terraform.tfstate*
+
+# ---- session and cookie material ----
+cookies.txt
+*.session
+*.sqlite
+*.sqlite3
+
+# ---- logs and dumps: these leak URLs, ids and sometimes tokens ----
+*.log
+logs/
+npm-debug.log*
+yarn-error.log*
+*.heapsnapshot
+core.*
+
+# ---- editor and OS files that carry local paths or tokens ----
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.history/
+
+# ---- backups: the classic way a key ends up committed twice ----
+*.bak
+*.backup
+*.orig
+*.save
+*.tmp
+*~$*
+
+# ---- python ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
