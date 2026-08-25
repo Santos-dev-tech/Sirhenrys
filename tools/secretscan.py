@@ -58,9 +58,13 @@ RULES = [
     ('generic api secret', re.compile(r'(api[_-]?secret|client[_-]?secret|private[_-]?key)'
                                       r'["\']?\s*[:=]\s*["\'][A-Za-z0-9/+=_\-]{24,}["\']', re.I),
      'Named like a secret and shaped like one.'),
-    # Not a credential, but a personal address in a repo that is on GitHub is a
-    # phishing and credential-stuffing target - and two were sitting in the docs,
-    # written down as the login for a service with billing attached.
+]
+
+# Not credentials. A personal address in a repo that is on GitHub is a phishing and
+# credential-stuffing target and is worth removing - but it does not need rotating
+# at four in the morning, and reporting it as a failure alongside a service-account
+# key puts this gate permanently red. Reported loudly; does not fail the run.
+PRIVACY_RULES = [
     ('personal email address',
      re.compile(r'[A-Za-z0-9._%+-]+@(gmail|outlook|hotmail|yahoo|icloud|protonmail|proton)\.[a-z]{2,}', re.I),
      'A personal inbox. Use a role address, or leave it out and ask.'),
@@ -99,7 +103,8 @@ def files():
             yield p
 
 
-def scan_tree():
+def scan_tree(rules=None):
+    rules = rules or RULES
     hits = []
     for p in files():
         try:
@@ -109,15 +114,16 @@ def scan_tree():
         for i, line in enumerate(text.splitlines(), 1):
             if len(line) > 2000 or allowed(line):
                 continue
-            for name, rx, why in RULES:
+            for name, rx, why in rules:
                 if rx.search(line):
                     hits.append((os.path.relpath(p, ROOT), i, name, why, line.strip()[:110]))
     return hits
 
 
-def scan_history():
+def scan_history(rules=None):
     """Every blob that ever existed, not just the current tip. A secret removed in
     a later commit is still one `git log -p` away from anybody with the repo."""
+    rules = rules or RULES
     hits = []
     try:
         out = subprocess.check_output(['git', 'log', '--all', '-p', '--no-color',
@@ -144,7 +150,7 @@ def scan_history():
             body = line[1:]
             if len(body) > 2000 or allowed(body):
                 continue
-            for name, rx, why in RULES:
+            for name, rx, why in rules:
                 if rx.search(body):
                     hits.append((path, commit, name, why, body.strip()[:110]))
     return hits
@@ -183,12 +189,28 @@ def main():
     for rx, why in ALLOW:
         print('  - %s' % why)
 
+    # ---- privacy, reported separately and never fatal ----
+    priv = scan_tree(PRIVACY_RULES)
+    priv_hist = scan_history(PRIVACY_RULES) if do_history else []
+    if priv or priv_hist:
+        print('\nPRIVACY - not credentials, and not fatal, but worth removing:')
+        for path, ln, name, why, snippet in priv:
+            print('  %s:%s  [%s]  %s' % (path, ln, name, snippet))
+        for path, commit, name, why, snippet in priv_hist:
+            print('  %s @ %s  [%s]  %s' % (path, commit, name, snippet))
+        if priv_hist and not priv:
+            print('\n  These are only in HISTORY - the working tree is clean. Removing them')
+            print('  means rewriting history and force-pushing, which breaks every existing')
+            print('  clone. That is a decision, not a chore; it is not done automatically.')
+
     total = len(hits) + len(hhits)
     print('')
     if total:
-        print('FAIL - %d finding%s' % (total, '' if total == 1 else 's'))
+        print('FAIL - %d credential finding%s' % (total, '' if total == 1 else 's'))
         return 1
-    print('PASS - no credential material found')
+    print('PASS - no credential material found'
+          + (' (%d privacy note%s above)' % (len(priv) + len(priv_hist),
+             '' if len(priv) + len(priv_hist) == 1 else 's') if (priv or priv_hist) else ''))
     return 0
 
 

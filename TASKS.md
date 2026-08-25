@@ -1143,3 +1143,41 @@ produces both a message and the raw error rather than a dead button.
 covered: open `#/account`, press the button, and sign in with a real account. If it
 reports an unauthorised domain, add the host in Firebase console → Authentication →
 Settings → Authorised domains.
+
+---
+
+## 28. The Quoted chip left a message on the screen  `[x]`
+
+Reported: pressing **Quoted** in Corporate & Bulk put a message at the bottom of the
+window and it never went away.
+
+Two faults feeding each other, and neither was in the button:
+
+1. **`.ad .notice` is `position:fixed` — it IS the toast.** The corporate panel
+   rendered its "Won · became order SH-xxxxx" line with that same class, so a line
+   that reads in the markup as part of the panel was a second toast nailed to the
+   window, re-rendered with `on` every repaint.
+2. **`toast()` found its element with `document.querySelector('.notice')`** — the
+   first one anywhere in the document. Once that banner existed it won, so the toast
+   wrote its text into the banner, `render()` then destroyed that node, and the 2.4s
+   timer cleared something no longer on the page while a fresh copy sat there.
+
+**Measured before:** after pressing Won, two `position:fixed` `.notice` elements at
+y=881 and y=897, one of them inside `#view`.
+
+Fixed: `toast()` owns one element (`.ad-toast`) and **holds a reference to it**
+rather than looking it up by class, kept on `AD` so it outlives the render that
+raised it. The banner became `.wonbar` — a static line inside the panel, which is
+what it always meant to be.
+
+**Verified:** `node tools/toasttest.js` — 7/7, including that nothing inside `#view`
+is `position:fixed`, which is the shape of the bug rather than this instance of it.
+
+### And the scanner learned a severity
+
+Adding a personal-email rule to `secretscan.py` turned the audit's "purge git
+secrets" check permanently red over two Gmail addresses in *history*. A leaked
+service-account key and a personal address are not the same problem — one ends your
+week, the other needs a decision about rewriting history — and this file's own
+docstring says a scanner nobody reads has stopped working. Credentials fail the run
+now; privacy findings are reported loudly and do not.

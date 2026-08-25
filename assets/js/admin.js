@@ -15,12 +15,30 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const KSh = n => 'KSh ' + Math.round(n).toLocaleString('en-KE');
 
-  let tT;
+  /* The toast owns one element and holds a reference to it.
+
+     It used to look itself up with querySelector('.notice'), which is the first
+     element with that class anywhere in the document - and the corporate panel
+     renders a banner with the same class. So the toast wrote into the banner,
+     render() then destroyed that node, and the 2.4s timer cleared something that
+     was no longer on the page while a fresh copy sat there permanently. Pressing
+     Quoted left a message stuck at the bottom of the screen.
+
+     Kept on AD rather than inside #view, because #view is replaced wholesale on
+     every route change and a toast should outlive the render that raised it. */
+  let tT, toastEl = null;
   function toast(m) {
-    let n = document.querySelector('.notice');
-    if (!n) { n = document.createElement('div'); n.className = 'notice'; AD.appendChild(n); }
-    n.textContent = m; n.classList.add('on');
-    clearTimeout(tT); tT = setTimeout(() => n.classList.remove('on'), 2400);
+    if (!toastEl || !AD.contains(toastEl)) {
+      toastEl = document.createElement('div');
+      toastEl.className = 'ad-toast';
+      toastEl.setAttribute('role', 'status');
+      toastEl.setAttribute('aria-live', 'polite');
+      AD.appendChild(toastEl);
+    }
+    toastEl.textContent = m;
+    toastEl.classList.add('on');
+    clearTimeout(tT);
+    tT = setTimeout(() => toastEl && toastEl.classList.remove('on'), 2400);
   }
 
   const statusPill = s => {
@@ -715,7 +733,10 @@
               `<button class="chip ${c.status === st ? 'on' : ''}" data-corp="${esc(c.id)}" data-corpst="${st}">${st}</button>`).join('')}
           </div></div>
           <div class="panel-bd">
-            ${c.orderId ? `<div class="notice on" style="margin-bottom:16px">
+            <!-- .wonbar, not .notice. .notice is position:fixed - it is the toast -
+                 so this line, which belongs inside the panel, was being pinned to the
+                 bottom of the window and left there. -->
+            ${c.orderId ? `<div class="wonbar">
               Won &middot; became order <a href="#/admin/orders" style="border-bottom:1px solid currentColor"
               >${esc(c.orderId)}</a>${(() => { const o = state.orders.find(x => x.id === c.orderId);
                 return o ? ' &middot; ' + fmt(o.total) + ' &middot; ' + esc(o.status) : ''; })()}</div>` : ''}

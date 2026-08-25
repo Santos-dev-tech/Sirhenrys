@@ -152,6 +152,23 @@
 .ad .steps button.done{background:var(--bronze);border-color:var(--bronze);color:var(--on-accent)}
 .ad .steps button.now{border-color:var(--ink);color:var(--ink)}
 .ad .empty{text-align:center;padding:60px 20px;color:var(--ink-3);font-size:13px}
+/* The floating toast. One element, owned by toast() in admin.js, which holds a
+   reference to it rather than looking it up by class - see the note there. */
+.ad .ad-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(150%);
+  background:var(--invert-bg);color:var(--invert-fg);padding:12px 22px;font-size:11.5px;
+  letter-spacing:.1em;z-index:200;transition:.3s;text-transform:uppercase;font-weight:600;
+  pointer-events:none}
+.ad .ad-toast.on{transform:translateX(-50%)}
+
+/* A line INSIDE a panel, which is what the corporate "became order" note always
+   meant to be. It used .notice, which is fixed, so it left itself on the screen. */
+.ad .wonbar{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok);
+  padding:11px 16px;margin-bottom:16px;font-size:12.5px;font-weight:600;
+  display:flex;align-items:center;gap:8px}
+.ad .wonbar a{color:inherit}
+
+/* Kept so nothing that still says .notice becomes an unstyled div, and so the
+   habit is visible: it is an alias of the toast, not a second one. */
 .ad .notice{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(150%);background:var(--invert-bg);
   color:var(--invert-fg);padding:12px 22px;font-size:11.5px;letter-spacing:.1em;z-index:200;transition:.3s;
   text-transform:uppercase;font-weight:600}

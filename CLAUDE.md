@@ -32,6 +32,7 @@ Run these before saying anything is finished. Each exits with its failure count.
 | `node tools/darktest.js --light` | WCAG contrast, every route, both themes, two viewports |
 | `node tools/watest.js` | 10 checks — the WhatsApp channel |
 | `node tools/googletest.js` | 10 checks — Continue with Google, and the CSP/COOP it needs |
+| `node tools/toasttest.js` | 7 checks — the console toast, and the banner it collided with |
 | `python tools/secretscan.py --history` | credentials, working tree and every commit |
 | `python tools/depscan.py` | vendored libraries against their recorded hashes |
 
