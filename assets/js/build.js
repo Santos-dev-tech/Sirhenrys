@@ -2,7 +2,7 @@
    The footer reads this to print "last updated". Regenerate before every
    deploy or the date on the live site is the date of the deploy before. */
 window.SH_BUILD = {
-  "date": "2026-08-25T18:28:54+03:00",
-  "rev": "95077f1",
-  "stamped": "2026-08-26T00:43:34"
+  "date": "2026-08-26T00:43:53+03:00",
+  "rev": "09a6d34",
+  "stamped": "2026-08-26T00:44:02"
 };
