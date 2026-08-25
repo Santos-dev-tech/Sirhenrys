@@ -22,14 +22,24 @@ other's subtree.
 | URL | Notes |
 |---|---|
 | **sirhenrys.pages.dev** | **Cloudflare Pages — use this one.** Unlimited bandwidth |
-| sir-henrys.web.app | Firebase Hosting. 360 MB/day. An older build |
+| sir-henrys.web.app | Firebase Hosting. 360 MB/day |
 | sirhenrysdemosite.netlify.app | Netlify, out of credits, deploys paused. Oldest build |
 
 Deploy to Cloudflare: stage a copy, then
 `wrangler pages deploy . --project-name=sirhenrys --branch=main --commit-dirty=true`.
 Deploy to Firebase: `firebase deploy --only hosting` from `sirhenrys/`.
 
-Repo: https://github.com/Santos-dev-tech/Sirhenrys — everything is pushed.
+Repo: https://github.com/Santos-dev-tech/Sirhenrys. The security pass, dark mode and Google
+sign-in live on the branch **`security-dark-mode-google`**, pushed 2026-08-25. `main` is
+still at `d2a005b`, which predates all of it — no PR has been opened.
+
+**Deployed 2026-08-25, rev `f87b2ce`.** Both Cloudflare and Firebase now serve the same
+build — the one with `security.js`, `ux.js`, `boot.js` and dark mode. Before that day both
+live URLs were serving the pre-security build, so the pass existed only on this machine.
+Cloudflare is deployed from a **staged copy**, not the repo root: `index.html`,
+`admin.html`, `_headers`, `_redirects`, `.well-known/` and `assets/` minus `assets/video/`
+(nothing references it) — 391 files, 42 MB. Deploying `.` would push `tools/`, `pitch/`
+and `node_modules` to a public URL.
 
 ---
 
