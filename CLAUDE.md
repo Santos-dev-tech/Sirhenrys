@@ -35,6 +35,7 @@ Run these before saying anything is finished. Each exits with its failure count.
 | `node tools/toasttest.js` | 7 checks — the console toast, and the banner it collided with |
 | `node tools/vptest.js` | the layout viewport equals the phone's width, 5 widths, both halves |
 | `node tools/stickytest.js` | the sticky header and the scroller survived `overflow-x:clip` |
+| `node tools/tilltest.js` | the till stacks on a phone, 5 widths, signed in through `signin.js` |
 | `python tools/secretscan.py --history` | credentials, working tree and every commit |
 | `python tools/depscan.py` | vendored libraries against their recorded hashes |
 
@@ -46,6 +47,7 @@ And the ones that produce something to **look at**, because numbers do not catch
 | `node tools/roomkey.js` | the lookbook in both themes |
 | `node tools/auditshot.js` | everything the security pass added |
 | `node tools/phoneshot.js` | `_shots/ph-*.png`, header and drawer, 3 phone widths, both themes |
+| `node tools/tillshot.js` | `_shots/till-*.png`, the till with a **filled** basket, both themes |
 
 **A failing run is not evidence until it survives a clean re-run.** These drive a real
 Chrome against a single-process Python server. On a loaded machine a stalled navigation
@@ -100,6 +102,14 @@ the other is invisible until somebody with a dark laptop opens the site.
 
 **`admin.css` is scoped under `.ad`. Never add an unscoped rule to it**, and never let
 anything in the console touch `document.body` — that once deleted the storefront.
+
+Scoping is not only about leaking outward. An unscoped rule in here is usually a **dead**
+rule, because almost everything it would override is already `.ad `-prefixed and therefore
+more specific — and a media query adds no specificity. `@media(max-width:1000px){.pos{...}}`
+lost to `.ad .pos{grid-template-columns:1fr 400px}` for as long as it existed, so the till
+stayed two columns on a phone: measured on a 375px screen it computed to `102.609px 400px`,
+the scan field 61px wide and the 400px basket hanging 162px off the side of the screen.
+`tools/tilltest.js` reads the *computed* grid rather than trusting the stylesheet.
 
 **`SHARED` syncs to Firestore, `DEVICE` stays local.** Carts and the signed-in till user
 must never sync.

@@ -244,7 +244,38 @@
 .ad .pos-total b{font-size:26px;font-weight:700;letter-spacing:-.02em}
 .ad .pos-note{font-size:11.5px;color:var(--ink-3);margin:10px 0 0;text-align:center}
 .ad .pos-change{font-size:14px;font-weight:600;margin-bottom:10px;color:var(--ok)}
-@media(max-width:1000px){.pos{grid-template-columns:1fr}.pos-basket{position:static}}
+/* These two were written unscoped, and unscoped is not merely against the rule here -
+   it made them DEAD. `.ad .pos` is 0-2-0 and `.pos` is 0-1-0; a media query adds no
+   specificity, so the narrow rule lost every time and the till stayed two columns all
+   the way down. Measured on a 375px phone it computed to `102.609px 400px`: the scan
+   field squeezed to 61px wide, and the 400px basket hanging 162px off the side of the
+   screen where nothing could reach it. */
+@media(max-width:1000px){
+  .ad .pos{grid-template-columns:1fr}
+  .ad .pos-basket{position:static}
+}
+
+/* ---------- the till on a phone ----------
+   Scan on top, basket underneath, each with the full width to itself. The scan field
+   is the thing a till is used through all day, so it gets a proper target rather than
+   whatever is left beside a 400px basket. 16px is deliberate and must not drop: any
+   smaller and iOS Safari zooms the page in on focus, and the till never zooms back. */
+@media(max-width:640px){
+  .ad .pos{gap:14px}
+  .ad .pos-scan{width:100%;min-height:54px;font-size:16px !important;padding:15px 14px !important}
+  /* the results list must not push the basket off the bottom of the screen */
+  .ad .pos-results{max-height:42vh}
+  /* four and five column rows are what "squeezed" was: the price and the quantity
+     stepper were fighting the title for the same 120px. The title gets its own line. */
+  .ad .pos-hit{grid-template-columns:34px 1fr auto;gap:10px}
+  .ad .pos-line{grid-template-columns:34px 1fr 26px;gap:10px 8px;row-gap:8px}
+  .ad .pos-line .pos-qty{grid-column:2;justify-self:start}
+  .ad .pos-line .pos-lt{grid-column:3/4;justify-self:end;align-self:center}
+  .ad .pos-line .pos-x{grid-column:3;grid-row:1;justify-self:end}
+  .ad .pos-qty button{width:38px;height:38px;font-size:15px}
+  .ad .pos-qty span{width:34px;font-size:13px}
+  .ad .pos-total b{font-size:24px}
+}
 /* receipt */
 .ad .receipt{font-family:'Courier New',monospace;max-width:320px;margin:0 auto;font-size:12px;line-height:1.6}
 .ad .r-mark{text-align:center;font-weight:700;letter-spacing:.24em;font-size:14px;font-family:var(--sans)}
