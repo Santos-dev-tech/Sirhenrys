@@ -58,3 +58,39 @@ The palette and both typefaces are the shop's own, lifted from `assets/css/site.
 the deck and the thing it is selling look like one object rather than a template with a
 logo dropped on it. The bronze is raised from #846144 to #A67C52 — the brand value goes
 muddy on a dark ground.
+
+---
+
+## The mobile deck — `Sir-Henrys-Mobile.html`
+
+Ten slides on the phone pass, built 2026-08-26. Same palette and the same two faces as
+the site (`--bone`, `--ink`, `--bronze`, Cormorant Garamond + Archivo), so the deck and
+the thing it reports on read as one object. Arrow keys or space to move, F for full
+screen. Published at https://claude.ai/code/artifact/170b9b4a-5db5-47a6-9685-2ee58991b3a3
+
+Rebuild: `python build-mobile.py` (substitutes the screenshots into
+`mobile-deck.src.html` as base64 and writes the single-file deck).
+
+The before/after screenshots are **not** mock-ups. `tools/deckshots.js` shoots the same
+routes at the same viewport against two servers: :8100 is the working tree, :8200 is a
+git worktree at `95077f1`, the commit immediately before the phone work. The red line
+down each shot is the true edge of the device, so anything past it is genuinely off the
+screen. Recreate the worktree with:
+
+    git worktree add ../before 95077f1
+    cd ../before && python tools/serve.py 8200
+
+### Figures used, and where they came from
+| | |
+|---|---|
+| 607px page on a 375px phone | `window.innerWidth` vs device width, `tools/vptest.js` |
+| Header needed 575px, now 207px | min-content width of `.hdr-in`, `tools/hdrfloor.js` |
+| Menu 425px wide, now 300px | measured box, `tools/vptest.js` |
+| Tap target 46px, now 252px | measured box of a `.mnav a` |
+| Scan box 61x55, now 286x57 | measured box of `#posScan`, `tools/tilltest.js` |
+| Basket 162px off-screen | `.pos-basket` right edge minus device width |
+
+### The slide not to skip
+Slide 9, "What this does not fix". Image weight, the offline till, simulated M-Pesa and
+the demo-grade staff login are all still true and all still theirs to hear. Slide 2 also
+admits our own earlier audit called the till workable on a phone when it was not.
