@@ -101,3 +101,19 @@ menu does not complain, he leaves. The retainer is what goes looking.
 Slide 9, "What this does not fix". Image weight, the offline till, simulated M-Pesa and
 the demo-grade staff login are all still true and all still theirs to hear. Slide 2 also
 admits our own earlier audit called the till workable on a phone when it was not.
+
+---
+
+## The features deck — `Sir-Henrys-Features.html`
+
+Fourteen slides, 66 features, 0.32 MB. Rebuild with `python features.py`.
+
+**A different job from the proposal deck.** That one makes an argument and needs presenting;
+this one answers "what do I actually get" and can be read without you in the room. So it
+carries no pricing, no Shopify comparison and no demo script — just the inventory, grouped
+by who uses each thing.
+
+The list is taken from the app itself, not from memory: 18 storefront routes in `app.js`,
+13 console views in `admin.js`, and the capability surface exported at the foot of
+`data.js`. If a feature is added, rebuild rather than hand-editing, and re-read those three
+places first.

@@ -7,14 +7,14 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const p=await b.newPage(); await p.setViewport({width:1600,height:900,deviceScaleFactor:1});
  const errs=[]; p.on('pageerror',e=>errs.push(e.message));
  p.on('console',m=>{if(m.type()==='error')errs.push(m.text().slice(0,140))});
- await p.goto('http://localhost:8100/pitch/Sir-Henrys-Proposal.html',{waitUntil:'networkidle2',timeout:90000});
+ await p.goto('http://localhost:8100/pitch/'+(process.env.DECK||'Sir-Henrys-Proposal.html'),{waitUntil:'networkidle2',timeout:90000});
  await sleep(3000);
  const n=await p.evaluate(()=>document.querySelectorAll('.slide').length);
  const want=(process.env.SLIDES||'1,2,3,5,6,12,13,16').split(',').map(Number);
  for(const s of want){
    await p.evaluate(k=>{ for(let j=0;j<k-1;j++) dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'})); }, s);
    await sleep(1200);
-   await p.screenshot({path:`C:/Users/ADMIN/New folder (2)/_shots/deck-${String(s).padStart(2,'0')}.jpg`,type:'jpeg',quality:88});
+   await p.screenshot({path:`C:/Users/ADMIN/New folder (2)/_shots/${process.env.PFX||'deck'}-${String(s).padStart(2,'0')}.jpg`,type:'jpeg',quality:88});
    await p.reload({waitUntil:'networkidle2'}); await sleep(1500);
  }
  // overflow check: nothing should spill past its slide
