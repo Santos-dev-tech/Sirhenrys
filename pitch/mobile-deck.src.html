@@ -87,17 +87,50 @@ body{
   font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;
 }
 .rail .sp{flex:1}
-.pips{display:flex;gap:5px;flex-wrap:wrap}
+
+/* The bar stays 4px because that is the look. The BUTTON is 26x24, because a
+   4px-tall target cannot be hit with a mouse and does not exist on a phone -
+   which is the exact bug this deck is about, so it is not one to ship here. */
+.pips{display:flex;gap:2px;flex-wrap:wrap}
 .pip{
-  width:22px;height:4px;border:0;padding:0;border-radius:2px;
-  background:var(--line);cursor:pointer;transition:background .2s;
+  width:26px;height:24px;border:0;padding:10px 2px;margin:0;
+  background:none;cursor:pointer;display:block;
 }
-.pip[aria-current="true"]{background:var(--bronze)}
-.pip:focus-visible{outline:2px solid var(--bronze);outline-offset:3px}
+.pip i{
+  display:block;height:4px;border-radius:2px;
+  background:var(--line);transition:background .2s;
+}
+.pip:hover i{background:var(--ink-3)}
+.pip[aria-current="true"] i{background:var(--bronze)}
+.pip:focus-visible{outline:2px solid var(--bronze);outline-offset:1px;border-radius:4px}
+
+/* Arrow keys only reach the deck once it has focus, so the keyboard is never the
+   only way through it. These are. */
+.step{
+  width:38px;height:38px;flex:none;
+  display:grid;place-items:center;
+  border:1px solid var(--line);border-radius:8px;
+  background:var(--paper);color:var(--ink);
+  font-size:15px;line-height:1;cursor:pointer;
+  transition:border-color .15s, color .15s;
+}
+.step:hover:not(:disabled){border-color:var(--bronze);color:var(--bronze)}
+.step:focus-visible{outline:2px solid var(--bronze);outline-offset:2px}
+.step:disabled{opacity:.32;cursor:not-allowed}
+.count{
+  font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-3);
+  letter-spacing:.06em;min-width:52px;text-align:center;
+}
+.count b{color:var(--ink);font-weight:700}
 .hint{font-size:11px;color:var(--ink-3);letter-spacing:.04em}
 .hint kbd{
   font-family:inherit;font-size:10.5px;border:1px solid var(--line);
   border-bottom-width:2px;border-radius:4px;padding:1px 5px;background:var(--paper);
+}
+@media(max-width:720px){ .hint{display:none} }
+@media(pointer:coarse){
+  .step{width:44px;height:44px}
+  .pip{width:30px;height:34px;padding:15px 2px}
 }
 
 /* ---------- a slide ---------- */
@@ -287,7 +320,10 @@ html{scroll-behavior:smooth}
     <b>Sir Henry's <span class="dim">&middot;</span> on a phone</b>
     <span class="sp"></span>
     <div class="pips" id="pips"></div>
-    <span class="hint"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> to move</span>
+    <button class="step" id="prev" type="button" aria-label="Previous slide">&larr;</button>
+    <span class="count" aria-live="polite"><b id="now">1</b> / <span id="total">10</span></span>
+    <button class="step" id="next" type="button" aria-label="Next slide">&rarr;</button>
+    <span class="hint"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> or <kbd>F</kbd></span>
   </nav>
 
   <!-- 1 ------------------------------------------------------------------ -->
@@ -548,11 +584,17 @@ html{scroll-behavior:smooth}
   var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
   var pips = document.getElementById('pips');
 
+  var prev = document.getElementById('prev');
+  var next = document.getElementById('next');
+  var now = document.getElementById('now');
+  document.getElementById('total').textContent = slides.length;
+
   slides.forEach(function(s, i){
     var b = document.createElement('button');
     b.className = 'pip';
     b.type = 'button';
     b.setAttribute('aria-label', 'Go to slide ' + (i+1) + ' of ' + slides.length);
+    b.appendChild(document.createElement('i'));   /* the visible bar; the button is the target */
     b.addEventListener('click', function(){ go(i); });
     pips.appendChild(b);
   });
@@ -562,24 +604,42 @@ html{scroll-behavior:smooth}
   function mark(i){
     current = i;
     buttons.forEach(function(b, n){ b.setAttribute('aria-current', n === i ? 'true' : 'false'); });
+    now.textContent = i + 1;
+    prev.disabled = i === 0;
+    next.disabled = i === slides.length - 1;
   }
   function go(i){
     i = Math.max(0, Math.min(slides.length - 1, i));
     slides[i].scrollIntoView({ block: 'start' });
     mark(i);
   }
+  prev.addEventListener('click', function(){ go(current - 1); });
+  next.addEventListener('click', function(){ go(current + 1); });
 
-  /* which slide is actually filling the screen */
-  if ('IntersectionObserver' in window) {
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){
-        if (e.isIntersecting) mark(slides.indexOf(e.target));
-      });
-    }, { rootMargin: '-45% 0px -45% 0px' });
-    slides.forEach(function(s){ io.observe(s); });
-  } else {
-    mark(0);
+  /* Which slide is actually on screen.
+     An IntersectionObserver was wrong here: two slides can both be intersecting
+     and the counter took whichever fired last, so jumping to slide 1 displayed
+     "2 / 10". Ask instead which slide covers the middle of the screen - there is
+     only ever one answer, and it cannot disagree with what the eye sees. */
+  var ticking = false;
+  function sync(){
+    ticking = false;
+    var mid = window.innerHeight / 2;
+    var best = 0, bestGap = Infinity;
+    for (var i = 0; i < slides.length; i++) {
+      var r = slides[i].getBoundingClientRect();
+      if (r.top <= mid && r.bottom >= mid) { best = i; break; }
+      var gap = Math.min(Math.abs(r.top - mid), Math.abs(r.bottom - mid));
+      if (gap < bestGap) { bestGap = gap; best = i; }
+    }
+    if (best !== current) mark(best);
   }
+  window.addEventListener('scroll', function(){
+    if (!ticking) { ticking = true; window.requestAnimationFrame(sync); }
+  }, { passive: true });
+  window.addEventListener('resize', sync, { passive: true });
+  mark(0);
+  sync();
 
   document.addEventListener('keydown', function(e){
     var t = e.target;
