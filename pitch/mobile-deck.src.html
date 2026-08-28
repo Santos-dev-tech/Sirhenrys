@@ -23,7 +23,6 @@
   --bronze-soft:#f0e8e0;
   --oxide:#b4442f;
   --oxide-soft:#f5e4e0;
-  --ok:#3f6b४f;
   --ok:#3f6b4f;
   --shadow:0 1px 2px rgba(21,21,21,.05), 0 8px 28px rgba(21,21,21,.07);
 }
@@ -343,70 +342,64 @@ html{scroll-behavior:smooth}
   </section>
 
   <!-- 2 ------------------------------------------------------------------ -->
-  <section class="slide" id="s2" aria-label="The gap we named">
+  <section class="slide" id="s2" aria-label="Who this affects">
+    <p class="eyebrow">Why it matters</p>
+    <h2>Both of your audiences are <em>holding a phone</em></h2>
+    <div class="cards">
+      <div class="card">
+        <h4>Your customers</h4>
+        <p>A man deciding whether to spend eighty thousand shillings on a suit is
+        usually doing it one-handed, on a phone, somewhere other than a desk.</p>
+      </div>
+      <div class="card">
+        <h4>Your shop floor</h4>
+        <p>Your staff are standing next to the customer with a tape measure, not
+        sitting behind a counter. What they carry is a phone.</p>
+      </div>
+    </div>
+    <p class="lead" style="margin-top:22px">
+      Everything in this deck is one of those two people trying to do something
+      ordinary, and what happened when they did.
+    </p>
+  </section>
+
+  <!-- 3 ------------------------------------------------------------------ -->
+  <section class="slide" id="s3" aria-label="We flagged this ourselves">
     <p class="eyebrow">Where this started</p>
     <h2>We flagged this <em>ourselves</em></h2>
     <blockquote>
       &ldquo;The console is desktop-shaped. Shop floor staff carry phones. The
       till works on one; the tables do not.&rdquo;
-      <cite>Our own audit of the build, section G</cite>
+      <cite>Our own audit of the build</cite>
     </blockquote>
     <p class="lead">
-      That note was right about the problem and <strong>too kind about the
-      severity</strong>. When we went back and measured rather than looked, the
-      till did not work on a phone either. Neither did the shop front.
+      We wrote that, and we were <strong>too kind to ourselves</strong>. When we
+      went back and checked properly, the till did not work on a phone at all.
+      Nor did the shop front.
     </p>
     <p class="dim" style="font-size:14px">
-      This deck is that correction, and the fix.
-    </p>
-  </section>
-
-  <!-- 3 ------------------------------------------------------------------ -->
-  <section class="slide" id="s3" aria-label="What a phone was served">
-    <p class="eyebrow">The finding</p>
-    <h2>The top of the page would <em>not</em> shrink</h2>
-    <div class="figs">
-      <div class="fig">
-        <span class="n bad">575<sub>px</sub></span>
-        <span class="k">Space the header demanded</span>
-      </div>
-      <div class="fig">
-        <span class="n">375<sub>px</sub></span>
-        <span class="k">Space a phone has</span>
-      </div>
-    </div>
-    <p class="lead">
-      A menu button, the wordmark and six icons in a row that was never allowed to
-      get smaller. When a phone browser meets a page that will not fit, it does the
-      only thing it can: it <strong>zooms the entire page out</strong> until the
-      widest thing fits &mdash; to 607px, on a 375px screen.
-    </p>
-    <p>
-      Everything sized in percentages then measured itself against that 607px
-      instead of the real screen. That is why the slide-out menu came out
-      <strong>425px wide on a 375px phone</strong> &mdash; a menu wider than the
-      device it was drawn on.
+      What follows is that correction, and the repair.
     </p>
   </section>
 
   <!-- 4 ------------------------------------------------------------------ -->
   <section class="slide" id="s4" aria-label="The shop front, before and after">
     <p class="eyebrow">Evidence &middot; the shop front</p>
-    <h2>The same page, the same phone</h2>
+    <h2>What a customer <em>actually saw</em></h2>
     <div class="pair">
       <div class="shot">
         <span class="tag before"><span class="dot"></span>Before</span>
         <figure><img src="{{IMG:before-home}}" alt="The Sir Henry's home page on a 390px phone before the fix: the whole page is zoomed out, type and controls small."></figure>
-        <p class="cap">Zoomed out to fit a header that would not shrink. The red line is the true edge of the screen.</p>
+        <p class="cap">Shrunk to fit. A customer had to pinch and zoom to read a price, on a page selling KSh 40,000 suits.</p>
       </div>
       <div class="between">
         <div class="arrow">&rarr;</div>
-        <div class="lbl">390px phone</div>
+        <div class="lbl">The same phone</div>
       </div>
       <div class="shot">
         <span class="tag after"><span class="dot"></span>After</span>
         <figure><img src="{{IMG:after-home}}" alt="The same home page after the fix: the header fits, type is full size, nothing crosses the screen edge."></figure>
-        <p class="cap">The header fits, so nothing zooms. Type returns to the size it was designed at.</p>
+        <p class="cap">Readable at arm's length, at the size it was designed to be seen.</p>
       </div>
     </div>
   </section>
@@ -414,126 +407,107 @@ html{scroll-behavior:smooth}
   <!-- 5 ------------------------------------------------------------------ -->
   <section class="slide" id="s5" aria-label="The menu, before and after">
     <p class="eyebrow">Evidence &middot; the menu</p>
-    <h2>A menu you could not read <em>or</em> hit</h2>
+    <h2>A menu you could not read <em>or</em> tap</h2>
     <div class="pair">
       <div class="shot">
         <span class="tag before"><span class="dot"></span>Before</span>
         <figure><img src="{{IMG:before-drawer}}" alt="The mobile menu before the fix: menu items run together into a paragraph instead of a stacked list."></figure>
-        <p class="cap">Items ran together into a paragraph. Each was only as wide as its own word &mdash; &ldquo;Suits&rdquo; was a 46px target.</p>
+        <p class="cap">The menu ran together into a block of text. Aim for Suits, hit Shirts. Most people try twice and give up.</p>
       </div>
       <div class="between">
         <div class="arrow">&rarr;</div>
-        <div class="lbl">Tap target<br>46px &rarr; 252px</div>
+        <div class="lbl">Every row,<br>thumb-sized</div>
       </div>
       <div class="shot">
         <span class="tag after"><span class="dot"></span>After</span>
         <figure><img src="{{IMG:after-drawer}}" alt="The mobile menu after the fix: a properly stacked list with full-width rows and indented sub-items."></figure>
-        <p class="cap">A stacked list again. Every row is the full width of the panel, so a thumb cannot miss.</p>
+        <p class="cap">One line each, the full width of the panel. A thumb cannot miss.</p>
       </div>
     </div>
     <p class="dim" style="font-size:13.5px;margin-top:18px">
-      This one had been live on every phone and tablet since the touch pass. It never showed on a desktop, because it only applied to touch screens.
+      This had been live on every phone and tablet for weeks. It never appeared on a desktop, so no one sitting at one would ever have seen it.
     </p>
   </section>
 
   <!-- 6 ------------------------------------------------------------------ -->
   <section class="slide" id="s6" aria-label="The till, before and after">
     <p class="eyebrow">Evidence &middot; the till</p>
-    <h2>The till, on the shop floor</h2>
+    <h2>What your staff <em>could not do</em></h2>
     <div class="pair">
       <div class="shot">
         <span class="tag before"><span class="dot"></span>Before</span>
         <figure><img src="{{IMG:before-till}}" alt="The till on a phone before the fix: content crushed into a narrow column, the scan box showing only three letters."></figure>
-        <p class="cap">Crushed into a column. The scan box was <strong>61px</strong> wide &mdash; it showed three letters. The basket sat 162px off the side of the screen, out of reach.</p>
+        <p class="cap">The scan box showed <strong>three letters</strong>. The basket sat off the side of the screen entirely &mdash; staff could not see what they were charging for.</p>
       </div>
       <div class="between">
         <div class="arrow">&rarr;</div>
-        <div class="lbl">Scan box<br>61px &rarr; 286px</div>
+        <div class="lbl">A till a person<br>can actually use</div>
       </div>
       <div class="shot">
         <span class="tag after"><span class="dot"></span>After</span>
         <figure><img src="{{IMG:after-till}}" alt="The till on a phone after the fix: full-width scan field above a full-width basket."></figure>
-        <p class="cap">Scan on top, basket underneath, each with the full width. Serving a customer from a phone is now a thing a person can do.</p>
+        <p class="cap">Scan on top, basket underneath. A fitting on the shop floor can now be rung up where the customer is standing.</p>
       </div>
     </div>
   </section>
 
   <!-- 7 ------------------------------------------------------------------ -->
-  <section class="slide" id="s7" aria-label="The numbers">
-    <p class="eyebrow">The numbers</p>
-    <h2>Measured, not judged by eye</h2>
-    <div class="tw">
-      <table>
-        <caption>Every figure taken from a real Chrome on a 375&ndash;390px phone viewport.</caption>
-        <thead>
-          <tr><th>What</th><th>Before</th><th>After</th><th>Why it matters</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Page width a phone was served</td>
-            <td class="num was">607px</td><td class="num now">375px</td>
-            <td>The page no longer zooms itself out</td>
-          </tr>
-          <tr>
-            <td>Space the header demanded</td>
-            <td class="num was">575px</td><td class="num now">207px</td>
-            <td>It fits the smallest phone we test</td>
-          </tr>
-          <tr>
-            <td>Slide-out menu width</td>
-            <td class="num was">425px</td><td class="num now">300px</td>
-            <td>Inside the screen, with the page still visible beside it</td>
-          </tr>
-          <tr>
-            <td>Menu row, tappable width</td>
-            <td class="num was">46px</td><td class="num now">252px</td>
-            <td>A thumb hits the row, not the word</td>
-          </tr>
-          <tr>
-            <td>Till scan box</td>
-            <td class="num was">61&times;55</td><td class="num now">286&times;57</td>
-            <td>A SKU is readable while it is being typed</td>
-          </tr>
-          <tr>
-            <td>Till basket</td>
-            <td class="num was">162px off-screen</td><td class="num now">On screen</td>
-            <td>Staff can see what they are charging for</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <section class="slide" id="s7" aria-label="What it was costing">
+    <p class="eyebrow">What it was costing</p>
+    <h2>Nobody was going to <em>tell you</em></h2>
+    <p class="lead">
+      A customer who cannot tap your menu does not email you about it. He does not
+      ring the shop. He leaves, and you never find out he was there.
+    </p>
+    <ul class="plain">
+      <li><span class="m warn">&mdash;</span><div>Every customer arriving on a phone met a page they had to pinch and zoom to read a price on.</div></li>
+      <li><span class="m warn">&mdash;</span><div>Every one who opened the menu got a block of running text where the links should have been.</div></li>
+      <li><span class="m warn">&mdash;</span><div>Every fitting on the shop floor had to be carried back to a desktop to be rung up.</div></li>
+    </ul>
+    <p style="margin-top:20px">
+      This was live for weeks and produced <strong>no complaints, no support calls
+      and no bad reviews</strong> &mdash; because a broken phone produces silence,
+      not feedback. The only way it was ever going to be found was somebody going
+      looking for it.
+    </p>
   </section>
 
   <!-- 8 ------------------------------------------------------------------ -->
-  <section class="slide" id="s8" aria-label="How we know">
-    <p class="eyebrow">How we know it stays fixed</p>
-    <h2>The checks now run <em>every time</em></h2>
-    <p class="lead">
-      Two of these problems had already passed a test suite while being broken. So
-      the tests changed too, not just the code.
-    </p>
-    <div class="cards">
-      <div class="card">
-        <span class="stat">5</span>
-        <h4>Phone widths, every screen</h4>
-        <p>430, 390, 375, 360 and 320px &mdash; the shop front and the staff console, on every page.</p>
+  <section class="slide" id="s8" aria-label="What the monthly buys">
+    <p class="eyebrow">The commercial part</p>
+    <h2>What the monthly <em>actually buys</em></h2>
+    <div class="figs">
+      <div class="fig">
+        <span class="n bad">67&ndash;110<sub>k</sub></span>
+        <span class="k">KSh / month, Shopify today</span>
       </div>
-      <div class="card">
-        <span class="stat">31</span>
-        <h4>Checks on the till alone</h4>
-        <p>It signs in through the real two-step staff login and reads the layout the browser actually produced.</p>
-      </div>
-      <div class="card">
-        <span class="stat">56</span>
-        <h4>Security and interface checks</h4>
-        <p>The existing suite, still passing, plus colour contrast in both light and dark.</p>
+      <div class="fig">
+        <span class="n good">50<sub>k</sub></span>
+        <span class="k">KSh / month, this</span>
       </div>
     </div>
-    <p style="margin-top:22px">
-      The old tests measured the page against <em>itself</em>, so a page that had
-      zoomed out always &ldquo;fitted&rdquo;. They now measure it against the
-      <strong>physical width of the phone</strong>, which is the only number that
-      matters to a customer.
+    <p class="lead">
+      Your current spend is the Shopify plan plus POS Pro across five stores, as
+      audited. Ours is less than the low end of it &mdash; and this month it bought
+      the work in this deck.
+    </p>
+    <div class="cards" style="margin-top:6px">
+      <div class="card">
+        <h4>Somebody looking</h4>
+        <p>This was found because the site gets checked on five phone sizes, not because a customer complained. Customers do not complain.</p>
+      </div>
+      <div class="card">
+        <h4>It cannot quietly return</h4>
+        <p>Those checks now run automatically on every change. The same fault cannot come back without stopping the work that caused it.</p>
+      </div>
+      <div class="card">
+        <h4>The rest of the site, continuously</h4>
+        <p>56 security and interface checks, and colour contrast in light and dark, across every page &mdash; every time.</p>
+      </div>
+    </div>
+    <p style="margin-top:20px">
+      A shop's website is not a delivery you take once. It is a thing that has to
+      keep working on phones that did not exist when it was built.
     </p>
   </section>
 
@@ -574,6 +548,56 @@ html{scroll-behavior:smooth}
     <div class="foot">
       <span>Sir Henry's Limited &middot; mobile pass, 26 August 2026</span>
       <span>Measurements from Chrome at 320&ndash;430px</span>
+    </div>
+  </section>
+
+  <!-- 11 ----------------------------------------------------------------- -->
+  <section class="slide" id="s11" aria-label="Appendix">
+    <p class="eyebrow">Appendix &middot; for whoever maintains the site</p>
+    <h2>The measurements <em>behind</em> it</h2>
+    <p class="lead" style="margin-bottom:20px">
+      Nothing here changes the story above. It is the record, so the claims can be
+      checked rather than taken on trust.
+    </p>
+    <div class="tw">
+      <table>
+        <caption>Every figure taken from a real Chrome on a 375&ndash;390px phone viewport.</caption>
+        <thead>
+          <tr><th>What</th><th>Before</th><th>After</th><th>Why it matters</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Page width a phone was served</td>
+            <td class="num was">607px</td><td class="num now">375px</td>
+            <td>The page no longer zooms itself out</td>
+          </tr>
+          <tr>
+            <td>Space the header demanded</td>
+            <td class="num was">575px</td><td class="num now">207px</td>
+            <td>It fits the smallest phone we test</td>
+          </tr>
+          <tr>
+            <td>Slide-out menu width</td>
+            <td class="num was">425px</td><td class="num now">300px</td>
+            <td>Inside the screen, with the page still visible beside it</td>
+          </tr>
+          <tr>
+            <td>Menu row, tappable width</td>
+            <td class="num was">46px</td><td class="num now">252px</td>
+            <td>A thumb hits the row, not the word</td>
+          </tr>
+          <tr>
+            <td>Till scan box</td>
+            <td class="num was">61&times;55</td><td class="num now">286&times;57</td>
+            <td>A SKU is readable while it is being typed</td>
+          </tr>
+          <tr>
+            <td>Till basket</td>
+            <td class="num was">162px off-screen</td><td class="num now">On screen</td>
+            <td>Staff can see what they are charging for</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 

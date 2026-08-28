@@ -90,6 +90,13 @@ screen. Recreate the worktree with:
 | Scan box 61x55, now 286x57 | measured box of `#posScan`, `tools/tilltest.js` |
 | Basket 162px off-screen | `.pos-basket` right edge minus device width |
 
+### The commercial slide
+Slide 8 sets **KSh 50,000/month** against the audited **KSh 67,000-110,000/month** they pay
+now for the Shopify plan plus POS Pro across five stores - the same figure the main proposal
+uses, sourced in the table at the top of this file. The argument is not that the site was
+repaired; it is that **nobody would ever have reported this**. A customer who cannot tap a
+menu does not complain, he leaves. The retainer is what goes looking.
+
 ### The slide not to skip
 Slide 9, "What this does not fix". Image weight, the offline till, simulated M-Pesa and
 the demo-grade staff login are all still true and all still theirs to hear. Slide 2 also
